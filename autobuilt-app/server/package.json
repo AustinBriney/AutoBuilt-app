@@ -1,0 +1,22 @@
+{
+  "name": "autobuilt-server",
+  "version": "1.0.0",
+  "description": "AutoBuilt client dashboard API",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js",
+    "seed": "node src/db/seed.js",
+    "dev": "node --watch src/index.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "better-sqlite3": "^13.0.3",
+    "cors": "^2.8.6",
+    "dayjs": "^1.11.23",
+    "express": "^5.2.1",
+    "nanoid": "^5.1.16"
+  }
+}
