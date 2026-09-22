@@ -34,6 +34,7 @@ export const api = {
   // Availability
   getAvailability: () => request('/availability'),
   addAvailabilityRule: (data) => request('/availability/rules', { method: 'POST', body: JSON.stringify(data) }),
+  updateAvailabilityRule: (id, data) => request(`/availability/rules/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   deleteAvailabilityRule: (id) => request(`/availability/rules/${id}`, { method: 'DELETE' }),
   addTimeOff: (data) => request('/availability/time-off', { method: 'POST', body: JSON.stringify(data) }),
   deleteTimeOff: (id) => request(`/availability/time-off/${id}`, { method: 'DELETE' }),

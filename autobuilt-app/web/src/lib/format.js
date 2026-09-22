@@ -22,6 +22,14 @@ export function formatTime(date) {
   return dayjs(date).format('h:mm A');
 }
 
+// Turn a stored 24-hour "HH:MM" string into a friendly "h:mm AM/PM".
+export function formatClock(hhmm) {
+  if (!hhmm) return '';
+  const [h, m] = hhmm.split(':').map(Number);
+  if (Number.isNaN(h)) return hhmm;
+  return dayjs().hour(h).minute(m || 0).format('h:mm A');
+}
+
 export function formatRelative(date) {
   const d = dayjs(date);
   const now = dayjs();
