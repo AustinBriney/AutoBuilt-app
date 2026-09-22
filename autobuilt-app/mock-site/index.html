@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Fade District Barbershop — Baton Rouge</title>
+<meta name="description" content="Baton Rouge's neighborhood barbershop. Fades, beard trims, hot-towel finishes. Book online." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  /* This is a mock CLIENT website (a barbershop). Its only job is to show how a
+     real client's site hands a booking to the AutoBuilt app: the Book form POSTs
+     to the same public endpoint a real Cal.com/website webhook would hit, and the
+     new appointment shows up live in the AutoBuilt dashboard. */
+  :root {
+    --ink: #1a1a1a; --muted: #6b6b6b; --paper: #f7f4ef; --card: #ffffff;
+    --line: rgba(0,0,0,0.1); --accent: #1a1a1a; --gold: #b08442;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: 'Inter', -apple-system, sans-serif; background: var(--paper); color: var(--ink); -webkit-font-smoothing: antialiased; }
+  h1,h2,h3 { font-family: 'Fraunces', Georgia, serif; font-weight: 600; margin: 0; letter-spacing: -0.01em; }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 0 22px; }
+
+  header { display: flex; align-items: center; justify-content: space-between; padding: 20px 0; }
+  .brand { font-family: 'Fraunces', serif; font-weight: 700; font-size: 20px; }
+  .brand span { color: var(--gold); }
+  nav a { color: var(--ink); text-decoration: none; font-size: 14px; font-weight: 600; margin-left: 22px; }
+
+  .hero { padding: 60px 0 70px; text-align: left; }
+  .hero .eyebrow { text-transform: uppercase; letter-spacing: 0.15em; font-size: 12px; font-weight: 700; color: var(--gold); }
+  .hero h1 { font-size: 52px; line-height: 1.05; margin: 14px 0 18px; max-width: 640px; }
+  .hero p { font-size: 18px; color: var(--muted); max-width: 520px; line-height: 1.5; margin: 0 0 30px; }
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; background: var(--accent); color: #fff; border: none; border-radius: 999px; padding: 15px 30px; font-size: 16px; font-weight: 600; cursor: pointer; font-family: inherit; transition: transform .15s ease, opacity .15s ease; }
+  .btn:hover { opacity: .9; }
+  .btn:active { transform: scale(.97); }
+  .btn.gold { background: var(--gold); }
+
+  .section { padding: 40px 0; }
+  .section h2 { font-size: 30px; margin-bottom: 24px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
+  .svc { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 22px; }
+  .svc .name { font-weight: 700; font-size: 17px; }
+  .svc .price { font-family: 'Fraunces', serif; font-size: 22px; color: var(--gold); margin: 8px 0 4px; }
+  .svc .dur { color: var(--muted); font-size: 13px; }
+
+  .hours { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 24px; max-width: 380px; }
+  .hours .row { display: flex; justify-content: space-between; padding: 7px 0; font-size: 15px; }
+  .hours .row + .row { border-top: 1px solid var(--line); }
+
+  footer { padding: 40px 0 60px; color: var(--muted); font-size: 13px; text-align: center; }
+
+  /* Booking modal */
+  .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,.5); display: none; align-items: center; justify-content: center; padding: 20px; z-index: 50; }
+  .modal-bg.open { display: flex; }
+  .modal { background: var(--card); border-radius: 20px; max-width: 420px; width: 100%; padding: 26px; max-height: 90vh; overflow-y: auto; }
+  .modal h3 { font-size: 24px; margin-bottom: 4px; }
+  .modal p.sub { color: var(--muted); font-size: 14px; margin: 0 0 18px; }
+  label { display: block; font-size: 13px; font-weight: 600; margin: 14px 0 6px; }
+  input, select { width: 100%; padding: 13px 14px; border: 1px solid var(--line); border-radius: 10px; font-size: 15px; font-family: inherit; background: var(--paper); }
+  .modal .btn { width: 100%; margin-top: 22px; }
+  .close { float: right; background: none; border: none; font-size: 22px; cursor: pointer; color: var(--muted); line-height: 1; }
+  .ok { text-align: center; padding: 14px 0; }
+  .ok .check { width: 56px; height: 56px; border-radius: 50%; background: var(--gold); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 30px; margin: 0 auto 16px; }
+  .row2 { display: flex; gap: 10px; }
+  .row2 > div { flex: 1; }
+  .err { color: #b0342f; font-size: 13px; margin-top: 10px; }
+  @media (max-width: 600px) { .hero h1 { font-size: 38px; } }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="brand">Fade District<span>.</span></div>
+      <nav>
+        <a href="#services">Services</a>
+        <a href="#hours">Hours</a>
+        <a href="#" onclick="openBooking();return false;">Book</a>
+      </nav>
+    </header>
+
+    <section class="hero">
+      <div class="eyebrow">Baton Rouge · Government St</div>
+      <h1>Sharp cuts, clean fades, no waiting around.</h1>
+      <p>A neighborhood barbershop that respects your time. Book online in seconds and get a text reminder before your spot.</p>
+      <button class="btn gold" onclick="openBooking()">Book an appointment</button>
+    </section>
+
+    <section class="section" id="services">
+      <h2>Services</h2>
+      <div class="grid" id="services-grid">
+        <div class="svc"><div class="name">Signature Fade</div><div class="price">$40</div><div class="dur">45 min</div></div>
+      </div>
+    </section>
+
+    <section class="section" id="hours">
+      <h2>Hours</h2>
+      <div class="hours" id="hours-box">
+        <div class="row"><span>Monday</span><span>9:00 AM – 5:00 PM</span></div>
+        <div class="row"><span>Tue – Sat</span><span>By appointment</span></div>
+        <div class="row"><span>Sunday</span><span>Closed</span></div>
+      </div>
+    </section>
+
+    <footer>
+      4400 Government St, Baton Rouge, LA · (225) 555-0142<br />
+      <span style="opacity:.7">Bookings powered by AutoBuilt</span>
+    </footer>
+  </div>
+
+  <!-- Booking modal -->
+  <div class="modal-bg" id="modal">
+    <div class="modal">
+      <button class="close" onclick="closeBooking()">&times;</button>
+      <div id="form-view">
+        <h3>Book your spot</h3>
+        <p class="sub">We'll text you a reminder before your appointment.</p>
+        <label>Your name</label>
+        <input id="f-name" placeholder="Jane Doe" />
+        <label>Mobile number</label>
+        <input id="f-phone" type="tel" placeholder="(225) 555-1234" />
+        <label>Service</label>
+        <select id="f-service"></select>
+        <div class="row2">
+          <div>
+            <label>Date</label>
+            <input id="f-date" type="date" />
+          </div>
+          <div>
+            <label>Time</label>
+            <input id="f-time" type="time" value="10:00" />
+          </div>
+        </div>
+        <button class="btn gold" id="submit-btn" onclick="submitBooking()">Confirm booking</button>
+        <div class="err" id="err" style="display:none;"></div>
+      </div>
+      <div id="ok-view" style="display:none;">
+        <div class="ok">
+          <div class="check">&#10003;</div>
+          <h3>You're booked!</h3>
+          <p class="sub" id="ok-msg"></p>
+          <button class="btn" onclick="closeBooking()">Done</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+  // Points at the AutoBuilt API. This is the exact endpoint a real website or
+  // Cal.com webhook would call — a booking here appears instantly in the app.
+  const API = 'https://autobuilt-api.onrender.com';
+
+  // Prefill date with today
+  document.getElementById('f-date').value = new Date().toISOString().slice(0, 10);
+
+  let services = [];
+  fetch(API + '/api/services')
+    .then(r => r.json())
+    .then(list => {
+      services = list.filter(s => s.active);
+      const sel = document.getElementById('f-service');
+      sel.innerHTML = services.map(s => `<option value="${s.id}">${s.name} — $${(s.price_cents/100).toFixed(0)} · ${s.duration_min} min</option>`).join('');
+      // Also render the services grid from live data
+      if (services.length) {
+        document.getElementById('services-grid').innerHTML = services.map(s =>
+          `<div class="svc"><div class="name">${s.name}</div><div class="price">$${(s.price_cents/100).toFixed(0)}</div><div class="dur">${s.duration_min} min</div></div>`
+        ).join('');
+      }
+    })
+    .catch(() => {});
+
+  function openBooking() { document.getElementById('modal').classList.add('open'); }
+  function closeBooking() {
+    document.getElementById('modal').classList.remove('open');
+    document.getElementById('form-view').style.display = 'block';
+    document.getElementById('ok-view').style.display = 'none';
+  }
+
+  async function submitBooking() {
+    const name = document.getElementById('f-name').value.trim();
+    const phone = document.getElementById('f-phone').value.trim();
+    const serviceId = document.getElementById('f-service').value;
+    const date = document.getElementById('f-date').value;
+    const time = document.getElementById('f-time').value;
+    const err = document.getElementById('err');
+    err.style.display = 'none';
+
+    if (!name || !phone || !date || !time) {
+      err.textContent = 'Please fill in your name, number, date, and time.';
+      err.style.display = 'block';
+      return;
+    }
+    const svc = services.find(s => s.id === serviceId);
+    const startAt = new Date(date + 'T' + time).toISOString();
+    const btn = document.getElementById('submit-btn');
+    btn.textContent = 'Booking…';
+    btn.disabled = true;
+    try {
+      const res = await fetch(API + '/api/public/book', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          customerName: name,
+          phone,
+          serviceId: serviceId || null,
+          startAt,
+          durationMin: svc ? svc.duration_min : 30,
+        }),
+      });
+      if (!res.ok) throw new Error('Booking failed. Please try again.');
+      const when = new Date(startAt).toLocaleString([], { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+      document.getElementById('ok-msg').textContent = `${svc ? svc.name : 'Appointment'} on ${when}. See you then!`;
+      document.getElementById('form-view').style.display = 'none';
+      document.getElementById('ok-view').style.display = 'block';
+    } catch (e) {
+      err.textContent = e.message;
+      err.style.display = 'block';
+    } finally {
+      btn.textContent = 'Confirm booking';
+      btn.disabled = false;
+    }
+  }
+</script>
+</body>
+</html>
