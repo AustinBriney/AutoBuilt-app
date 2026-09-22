@@ -1,50 +1,64 @@
+/* Palette matches autobuiltsystems.com exactly (paper/ink/brass/stamp) so
+   the app and the marketing site read as one product. Light is the primary,
+   default theme — it's what the site looks like, and what a client should
+   recognize instantly. Dark is a clean neutral charcoal, not a green tint,
+   so it doesn't fight the brand's warm, editorial feel. */
 :root {
-  color-scheme: dark;
-  --accent: #c9a35a;
-  --accent-soft: rgba(201, 163, 90, 0.14);
-  --accent-ink: #1a2b20;
-  --danger: #e2685a;
-  --danger-soft: rgba(226, 104, 90, 0.14);
-  --success: #6fbf8a;
-  --success-soft: rgba(111, 191, 138, 0.14);
+  color-scheme: light;
+  --accent: #ad7c34;
+  --accent-hover: #8a6226;
+  --accent-soft: rgba(173, 124, 52, 0.12);
+  --accent-ink: #f6f1e7;
+  --danger: #8c3430;
+  --danger-soft: rgba(140, 52, 48, 0.1);
+  --success: #4b6b4e;
+  --success-soft: rgba(75, 107, 78, 0.11);
 
-  --bg: #0c1712;
-  --bg-elevated: #101f18;
-  --card: #16281f;
-  --card-hover: #1b3025;
-  --ink: #f3ede0;
-  --ink-soft: #b6b0a1;
-  --ink-faint: #7d786c;
-  --line: rgba(243, 237, 224, 0.09);
-  --line-strong: rgba(243, 237, 224, 0.16);
+  --bg: #f6f1e7;
+  --bg-elevated: #eee7d7;
+  --card: #fcfaf4;
+  --card-hover: #f5f0e4;
+  --ink: #1e2a22;
+  --ink-soft: #4c5348;
+  --ink-faint: #8a8b7c;
+  --line: rgba(30, 42, 34, 0.14);
+  --line-strong: rgba(30, 42, 34, 0.22);
 
   --radius-sm: 10px;
   --radius-md: 16px;
   --radius-lg: 22px;
   --radius-pill: 999px;
 
-  --shadow-card: 0 12px 32px -18px rgba(0, 0, 0, 0.55);
-  --shadow-pop: 0 20px 48px -16px rgba(0, 0, 0, 0.6);
+  --shadow-card: 0 10px 26px -18px rgba(30, 42, 34, 0.35);
+  --shadow-pop: 0 20px 44px -16px rgba(30, 42, 34, 0.4);
 
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
   --nav-height: 64px;
   --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
 
-:root[data-theme='light'] {
-  color-scheme: light;
-  --accent-ink: #ffffff;
-  --bg: #faf7f0;
-  --bg-elevated: #f2ede0;
-  --card: #ffffff;
-  --card-hover: #fbf9f4;
-  --ink: #201f1a;
-  --ink-soft: #635f54;
-  --ink-faint: #948e80;
-  --line: rgba(32, 31, 26, 0.09);
-  --line-strong: rgba(32, 31, 26, 0.16);
-  --shadow-card: 0 10px 28px -18px rgba(32, 31, 26, 0.28);
-  --shadow-pop: 0 20px 44px -16px rgba(32, 31, 26, 0.32);
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --accent: #c19a52;
+  --accent-hover: #d4ac66;
+  --accent-soft: rgba(193, 154, 82, 0.16);
+  --accent-ink: #1a1712;
+  --danger: #d98984;
+  --danger-soft: rgba(217, 137, 132, 0.14);
+  --success: #8fae8f;
+  --success-soft: rgba(143, 174, 143, 0.14);
+
+  --bg: #161511;
+  --bg-elevated: #1c1b16;
+  --card: #201f19;
+  --card-hover: #27251e;
+  --ink: #f1ece0;
+  --ink-soft: #b3ad9c;
+  --ink-faint: #79766a;
+  --line: rgba(241, 236, 224, 0.08);
+  --line-strong: rgba(241, 236, 224, 0.15);
+  --shadow-card: 0 12px 30px -18px rgba(0, 0, 0, 0.6);
+  --shadow-pop: 0 20px 46px -16px rgba(0, 0, 0, 0.65);
 }
 
 * { box-sizing: border-box; }
@@ -96,11 +110,12 @@ button { font-family: inherit; }
 }
 
 .eyebrow {
-  font-size: 12.5px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--ink-faint);
+  color: var(--accent-hover);
 }
 
 .page-title {
@@ -132,8 +147,8 @@ button { font-family: inherit; }
   user-select: none;
 }
 .btn:active { transform: scale(0.97); }
-.btn-primary { background: var(--accent); color: var(--accent-ink); }
-.btn-primary:hover { filter: brightness(1.06); }
+.btn-primary { background: var(--ink); color: var(--bg); }
+.btn-primary:hover { background: var(--accent-hover); }
 .btn-secondary { background: var(--card); color: var(--ink); border: 1px solid var(--line-strong); }
 .btn-ghost { background: transparent; color: var(--ink-soft); }
 .btn-danger { background: var(--danger-soft); color: var(--danger); }
