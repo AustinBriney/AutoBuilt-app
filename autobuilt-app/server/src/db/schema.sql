@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS businesses (
   address TEXT,
   booking_url TEXT,
   theme TEXT NOT NULL DEFAULT 'system', -- 'light' | 'dark' | 'system'
+  onboarded INTEGER NOT NULL DEFAULT 0, -- 0 until the owner finishes first-run setup
   automations_missed_call INTEGER NOT NULL DEFAULT 1,
   automations_reminder INTEGER NOT NULL DEFAULT 1,
   automations_review INTEGER NOT NULL DEFAULT 1,
