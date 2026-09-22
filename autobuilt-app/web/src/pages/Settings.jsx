@@ -9,13 +9,6 @@ import { ErrorState } from '../components/EmptyState.jsx';
 import { SunIcon, MoonIcon } from '../components/icons.jsx';
 import './Settings.css';
 
-const AUTOMATIONS = [
-  { key: 'automations_missed_call', name: 'Missed-call text-back', desc: 'Text a caller automatically if you miss their call.' },
-  { key: 'automations_reminder', name: 'Appointment reminders', desc: 'Remind customers before their appointment; they can confirm or reschedule by text.' },
-  { key: 'automations_review', name: 'Review requests', desc: 'Ask happy customers for a review after their visit.' },
-  { key: 'automations_winback', name: 'Win-back messages', desc: "Reach out to customers who haven't been back in a while." },
-];
-
 export default function Settings() {
   const { status, data, error, refetch } = useAsync(() => api.getBusiness(), []);
   const integrations = useAsync(() => api.getIntegrations(), []);
@@ -82,44 +75,22 @@ export default function Settings() {
       </div>
 
       <div className="settings-section">
-        <h2>Automations</h2>
+        <h2>Your plan</h2>
         <div className="card">
-          {AUTOMATIONS.map((a, i) => (
-            <div key={a.key}>
-              <div className="toggle-row">
-                <div>
-                  <div className="name">{a.name}</div>
-                  <div className="desc">{a.desc}</div>
-                </div>
-                <button
-                  className={`switch${form[a.key] ? ' on' : ''}`}
-                  disabled={saving}
-                  onClick={() => saveField({ [a.key]: form[a.key] ? 0 : 1 })}
-                  aria-label={a.name}
-                />
+          {integrations.status === 'success' ? (
+            <div className="integration-row">
+              <div>
+                <div className="name">{integrations.data.stripe.plan}</div>
+                <div className="desc">Everything runs automatically in the background — bookings, texts, and follow-ups.</div>
               </div>
-              {i < AUTOMATIONS.length - 1 && <hr className="divider" />}
+              <span className={`badge ${integrations.data.stripe.status === 'active' ? 'badge-success' : 'badge-neutral'}`}>
+                {integrations.data.stripe.status === 'active' ? 'Active' : integrations.data.stripe.status}
+              </span>
             </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="settings-section">
-        <h2>Connected services</h2>
-        <div className="card">
-          {integrations.status === 'success' && (
-            <>
-              <IntegrationRow name="Booking (Cal.com)" desc={integrations.data.calcom.note} connected={integrations.data.calcom.connected} />
-              <hr className="divider" />
-              <IntegrationRow name="Texting (Twilio)" desc={integrations.data.twilio.note} connected={integrations.data.twilio.connected} />
-              <hr className="divider" />
-              <IntegrationRow name={`Plan: ${integrations.data.stripe.plan}`} desc={`Billing status: ${integrations.data.stripe.status}`} connected={integrations.data.stripe.status === 'active'} />
-            </>
+          ) : (
+            <div className="integration-row"><div className="desc">Loading…</div></div>
           )}
         </div>
-        <p style={{ fontSize: 12, color: 'var(--ink-faint)', marginTop: 10, padding: '0 4px' }}>
-          These run behind the scenes — you never need to log into them separately.
-        </p>
       </div>
 
       <TestTools toast={toast} />
@@ -140,18 +111,6 @@ function EditableField({ label, value, onSave, last }) {
         onChange={(e) => { setVal(e.target.value); setEditing(true); }}
         onBlur={() => { if (editing) { onSave(val); setEditing(false); } }}
       />
-    </div>
-  );
-}
-
-function IntegrationRow({ name, desc, connected }) {
-  return (
-    <div className="integration-row">
-      <div>
-        <div className="name">{name}</div>
-        <div className="desc">{desc}</div>
-      </div>
-      <span className={`badge ${connected ? 'badge-success' : 'badge-neutral'}`}>{connected ? 'Live' : 'Mock'}</span>
     </div>
   );
 }

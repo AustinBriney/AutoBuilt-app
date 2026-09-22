@@ -1,0 +1,31 @@
+.onboard {
+  min-height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: calc(env(safe-area-inset-top, 0px) + 24px) 20px calc(env(safe-area-inset-bottom, 0px) + 24px);
+}
+
+.onboard-inner {
+  width: 100%;
+  max-width: 420px;
+  animation: screen-in 0.4s var(--ease);
+}
+
+.onboard-title {
+  font-size: 34px;
+  line-height: 1.1;
+  margin: 6px 0 12px;
+}
+
+.onboard-sub {
+  color: var(--ink-soft);
+  font-size: 15px;
+  line-height: 1.5;
+  margin-bottom: 28px;
+}
+
+.onboard-form .field { margin-bottom: 18px; }
+.onboard-form .btn-block { margin-top: 8px; }
+
+.opt { color: var(--ink-faint); font-weight: 500; }

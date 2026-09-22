@@ -3,7 +3,7 @@ import dayjs from 'dayjs';
 import { api } from '../lib/api.js';
 import { useAsync } from '../lib/useAsync.js';
 import { useToast } from '../lib/toast.jsx';
-import { formatDayHeading, formatTime, formatMoney, formatDuration } from '../lib/format.js';
+import { formatDayHeading, formatTime, formatMoney, formatDuration, formatClock } from '../lib/format.js';
 import { SkeletonList } from '../components/Skeleton.jsx';
 import EmptyState, { ErrorState } from '../components/EmptyState.jsx';
 import Sheet from '../components/Sheet.jsx';
@@ -113,10 +113,22 @@ function StatusBadge({ status }) {
 function ServicesTab() {
   const { status, data, error, refetch } = useAsync(() => api.getServices(), []);
   const toast = useToast();
+  const [confirmId, setConfirmId] = useState(null);
 
   async function toggleActive(svc) {
     try {
       await api.updateService(svc.id, { active: svc.active ? 0 : 1 });
+      refetch();
+    } catch (e) {
+      toast(e.message, 'error');
+    }
+  }
+
+  async function removeService(id) {
+    try {
+      await api.deleteService(id);
+      setConfirmId(null);
+      toast('Service deleted.');
       refetch();
     } catch (e) {
       toast(e.message, 'error');
@@ -130,12 +142,22 @@ function ServicesTab() {
   return (
     <div>
       {data.map((s) => (
-        <div className="card svc-row" key={s.id} onClick={() => toggleActive(s)}>
+        <div className="card svc-row" key={s.id}>
           <div className="svc-info">
             <div className="name">{s.name}</div>
-            <div className="meta">{formatDuration(s.duration_min)}{s.active ? '' : ' · hidden from booking'}</div>
+            <div className="meta">{formatDuration(s.duration_min)} · {formatMoney(s.price_cents)}{s.active ? '' : ' · hidden'}</div>
           </div>
-          <div className="svc-price">{formatMoney(s.price_cents)}</div>
+          {confirmId === s.id ? (
+            <div className="row-actions">
+              <button className="btn btn-danger btn-sm" onClick={() => removeService(s.id)}>Delete</button>
+              <button className="btn btn-ghost btn-sm" onClick={() => setConfirmId(null)}>Cancel</button>
+            </div>
+          ) : (
+            <div className="row-actions">
+              <button className="btn btn-ghost btn-sm" onClick={() => toggleActive(s)}>{s.active ? 'Hide' : 'Show'}</button>
+              <button className="btn btn-ghost btn-sm danger-text" onClick={() => setConfirmId(s.id)}>Delete</button>
+            </div>
+          )}
         </div>
       ))}
     </div>
@@ -145,6 +167,28 @@ function ServicesTab() {
 function HoursTab() {
   const { status, data, error, refetch } = useAsync(() => api.getAvailability(), []);
   const toast = useToast();
+  const [editId, setEditId] = useState(null);
+  const [draft, setDraft] = useState({ start: '', end: '' });
+  const [saving, setSaving] = useState(false);
+
+  function startEdit(r) {
+    setEditId(r.id);
+    setDraft({ start: r.start_time, end: r.end_time });
+  }
+
+  async function saveEdit(id) {
+    setSaving(true);
+    try {
+      await api.updateAvailabilityRule(id, { startTime: draft.start, endTime: draft.end });
+      setEditId(null);
+      toast('Hours updated.');
+      refetch();
+    } catch (e) {
+      toast(e.message, 'error');
+    } finally {
+      setSaving(false);
+    }
+  }
 
   async function removeRule(id) {
     try {
@@ -164,11 +208,34 @@ function HoursTab() {
       {data.rules.length === 0 && <EmptyState title="No hours set" description="Add the days and times you're open for bookings." />}
       {data.rules.map((r) => (
         <div className="card avail-row" key={r.id}>
-          <div className="svc-info">
-            <div className="name">{WEEKDAYS[r.weekday]}</div>
-            <div className="meta">{r.start_time} – {r.end_time}</div>
-          </div>
-          <button className="btn btn-ghost btn-sm" onClick={() => removeRule(r.id)}>Remove</button>
+          {editId === r.id ? (
+            <div style={{ width: '100%' }}>
+              <div className="name" style={{ marginBottom: 10 }}>{WEEKDAYS[r.weekday]}</div>
+              <div className="time-row">
+                <div className="field" style={{ marginBottom: 0 }}>
+                  <label>Opens</label>
+                  <input className="input" type="time" value={draft.start} onChange={(e) => setDraft({ ...draft, start: e.target.value })} />
+                </div>
+                <div className="field" style={{ marginBottom: 0 }}>
+                  <label>Closes</label>
+                  <input className="input" type="time" value={draft.end} onChange={(e) => setDraft({ ...draft, end: e.target.value })} />
+                </div>
+              </div>
+              <div className="row-actions" style={{ marginTop: 12 }}>
+                <button className="btn btn-primary btn-sm" disabled={saving} onClick={() => saveEdit(r.id)}>{saving ? 'Saving…' : 'Save'}</button>
+                <button className="btn btn-ghost btn-sm" onClick={() => setEditId(null)}>Cancel</button>
+                <button className="btn btn-ghost btn-sm danger-text" style={{ marginLeft: 'auto' }} onClick={() => removeRule(r.id)}>Remove</button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="svc-info">
+                <div className="name">{WEEKDAYS[r.weekday]}</div>
+                <div className="meta">{formatClock(r.start_time)} – {formatClock(r.end_time)}</div>
+              </div>
+              <button className="btn btn-ghost btn-sm" onClick={() => startEdit(r)}>Edit</button>
+            </>
+          )}
         </div>
       ))}
 
