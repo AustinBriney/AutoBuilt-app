@@ -11,11 +11,17 @@ import Schedule from './pages/Schedule.jsx';
 import Customers from './pages/Customers.jsx';
 import CustomerDetail from './pages/CustomerDetail.jsx';
 import Settings from './pages/Settings.jsx';
+import Onboarding from './pages/Onboarding.jsx';
 
 function Shell() {
   const [unread, setUnread] = useState(0);
+  const [business, setBusiness] = useState(undefined); // undefined = loading
   const location = useLocation();
   const hideNav = /^\/inbox\/[^/]+$/.test(location.pathname);
+
+  const loadBusiness = () => api.getBusiness().then(setBusiness).catch(() => setBusiness(null));
+
+  useEffect(() => { loadBusiness(); }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -26,6 +32,14 @@ function Shell() {
     const id = setInterval(poll, 15000);
     return () => { cancelled = true; clearInterval(id); };
   }, []);
+
+  // Still loading the business record — render nothing to avoid a flash.
+  if (business === undefined) return null;
+
+  // First-run: business exists but hasn't been set up yet.
+  if (business && !business.onboarded) {
+    return <Onboarding onDone={loadBusiness} />;
+  }
 
   return (
     <>
