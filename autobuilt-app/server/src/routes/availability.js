@@ -29,6 +29,21 @@ availabilityRouter.post('/rules', (req, res) => {
   res.status(201).json(db.prepare('SELECT * FROM availability_rules WHERE id = ?').get(id));
 });
 
+availabilityRouter.patch('/rules/:id', (req, res) => {
+  const businessId = getCurrentBusinessId();
+  const existing = db.prepare('SELECT * FROM availability_rules WHERE id = ? AND business_id = ?').get(req.params.id, businessId);
+  if (!existing) return res.status(404).json({ error: 'Hours entry not found.' });
+
+  const fieldMap = { weekday: 'weekday', startTime: 'start_time', endTime: 'end_time' };
+  const updates = Object.entries(req.body).filter(([k]) => fieldMap[k]);
+  if (updates.length === 0) return res.status(400).json({ error: 'No valid fields to update.' });
+
+  const setClause = updates.map(([k]) => `${fieldMap[k]} = ?`).join(', ');
+  const values = updates.map(([, v]) => v);
+  db.prepare(`UPDATE availability_rules SET ${setClause} WHERE id = ?`).run(...values, req.params.id);
+  res.json(db.prepare('SELECT * FROM availability_rules WHERE id = ?').get(req.params.id));
+});
+
 availabilityRouter.delete('/rules/:id', (req, res) => {
   const businessId = getCurrentBusinessId();
   db.prepare('DELETE FROM availability_rules WHERE id = ? AND business_id = ?').run(req.params.id, businessId);

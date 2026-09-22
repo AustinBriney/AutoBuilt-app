@@ -19,7 +19,7 @@ businessRouter.get('/', (req, res) => {
 businessRouter.patch('/', (req, res) => {
   const biz = currentBusiness();
   const allowed = [
-    'name', 'owner_name', 'phone', 'email', 'timezone', 'address', 'booking_url', 'theme',
+    'name', 'owner_name', 'phone', 'email', 'timezone', 'address', 'booking_url', 'theme', 'onboarded',
     'automations_missed_call', 'automations_reminder', 'automations_review', 'automations_winback',
     'winback_days', 'reminder_hours_before', 'review_delay_hours',
   ];
