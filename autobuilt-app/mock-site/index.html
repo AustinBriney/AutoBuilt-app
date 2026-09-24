@@ -146,18 +146,22 @@
   </div>
 
 <script>
-  // Points at the AutoBuilt API. This is the exact endpoint a real website or
-  // Cal.com webhook would call — a booking here appears instantly in the app.
+  // Points at the AutoBuilt API's public, slug-scoped routes — the same
+  // shape a real client's own booking site or a Cal.com webhook would call.
+  // The app is now multi-tenant, so every request has to say which business
+  // it's for; this demo site is registered as "fade-district-demo".
   const API = 'https://autobuilt-api.onrender.com';
+  const BUSINESS_SLUG = 'fade-district-demo';
 
   // Prefill date with today
   document.getElementById('f-date').value = new Date().toISOString().slice(0, 10);
 
   let services = [];
-  fetch(API + '/api/services')
+  fetch(`${API}/api/public/${BUSINESS_SLUG}/services`)
     .then(r => r.json())
     .then(list => {
-      services = list.filter(s => s.active);
+      // The public endpoint already only returns active services.
+      services = list;
       const sel = document.getElementById('f-service');
       sel.innerHTML = services.map(s => `<option value="${s.id}">${s.name} — $${(s.price_cents/100).toFixed(0)} · ${s.duration_min} min</option>`).join('');
       // Also render the services grid from live data
@@ -196,7 +200,7 @@
     btn.textContent = 'Booking…';
     btn.disabled = true;
     try {
-      const res = await fetch(API + '/api/public/book', {
+      const res = await fetch(`${API}/api/public/${BUSINESS_SLUG}/book`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
