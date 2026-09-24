@@ -2,6 +2,7 @@ import { HashRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { ThemeProvider } from './lib/theme.jsx';
 import { ToastProvider } from './lib/toast.jsx';
+import { AuthProvider, useAuth } from './lib/auth.jsx';
 import { api } from './lib/api.js';
 import BottomNav from './components/BottomNav.jsx';
 import Dashboard from './pages/Dashboard.jsx';
@@ -12,16 +13,13 @@ import Customers from './pages/Customers.jsx';
 import CustomerDetail from './pages/CustomerDetail.jsx';
 import Settings from './pages/Settings.jsx';
 import Onboarding from './pages/Onboarding.jsx';
+import Login from './pages/Login.jsx';
 
 function Shell() {
+  const { business, refreshBusiness } = useAuth();
   const [unread, setUnread] = useState(0);
-  const [business, setBusiness] = useState(undefined); // undefined = loading
   const location = useLocation();
   const hideNav = /^\/inbox\/[^/]+$/.test(location.pathname);
-
-  const loadBusiness = () => api.getBusiness().then(setBusiness).catch(() => setBusiness(null));
-
-  useEffect(() => { loadBusiness(); }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -33,12 +31,9 @@ function Shell() {
     return () => { cancelled = true; clearInterval(id); };
   }, []);
 
-  // Still loading the business record — render nothing to avoid a flash.
-  if (business === undefined) return null;
-
-  // First-run: business exists but hasn't been set up yet.
+  // First-run: the business was just created at signup but hasn't been set up yet.
   if (business && !business.onboarded) {
-    return <Onboarding onDone={loadBusiness} />;
+    return <Onboarding onDone={refreshBusiness} />;
   }
 
   return (
@@ -57,13 +52,23 @@ function Shell() {
   );
 }
 
+function Gate() {
+  const { business } = useAuth();
+  // undefined = we haven't checked a stored token yet; null = signed out.
+  if (business === undefined) return null;
+  if (business === null) return <Login />;
+  return <Shell />;
+}
+
 export default function App() {
   return (
     <ThemeProvider>
       <ToastProvider>
-        <HashRouter>
-          <Shell />
-        </HashRouter>
+        <AuthProvider>
+          <HashRouter>
+            <Gate />
+          </HashRouter>
+        </AuthProvider>
       </ToastProvider>
     </ThemeProvider>
   );
