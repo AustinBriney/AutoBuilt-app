@@ -51,11 +51,11 @@ export default function Onboarding({ onDone }) {
             <h1 className="onboard-title">The basics</h1>
             <div className="field">
               <label>Business name</label>
-              <input className="input" value={form.name} onChange={set('name')} placeholder="e.g. Fade District Barbershop" autoFocus />
+              <input className="input" value={form.name} onChange={set('name')} placeholder="e.g. Riverside Nail Bar" autoFocus />
             </div>
             <div className="field">
               <label>Your name</label>
-              <input className="input" value={form.owner_name} onChange={set('owner_name')} placeholder="e.g. Marcus Reed" />
+              <input className="input" value={form.owner_name} onChange={set('owner_name')} placeholder="e.g. Jordan Reed" />
             </div>
             <div className="field">
               <label>Business phone</label>

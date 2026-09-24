@@ -44,6 +44,22 @@
 .danger-text { color: var(--danger); }
 .avail-row { align-items: flex-start; }
 
+/* Tappable appointment row (opens cancel/delete actions) */
+.appt-row-wrap { margin-bottom: 10px; overflow: hidden; }
+.appt-row-wrap .appt-row {
+  width: 100%;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  margin-bottom: 0;
+}
+.appt-actions {
+  padding: 12px 14px 14px;
+  border-top: 1px solid var(--line);
+  gap: 6px;
+}
+
 .fab {
   position: fixed;
   right: 20px;

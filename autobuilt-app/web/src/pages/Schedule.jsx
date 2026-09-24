@@ -59,6 +59,9 @@ export default function Schedule() {
 
 function UpcomingTab() {
   const { status, data, error, refetch } = useAsync(() => api.getAppointments(), []);
+  const toast = useToast();
+  const [openId, setOpenId] = useState(null);
+  const [busy, setBusy] = useState(false);
 
   const groups = useMemo(() => {
     if (!data) return [];
@@ -70,6 +73,20 @@ function UpcomingTab() {
     }
     return Object.entries(byDay).map(([key, appts]) => ({ key, appts }));
   }, [data]);
+
+  async function act(fn, msg) {
+    setBusy(true);
+    try {
+      await fn();
+      toast(msg);
+      setOpenId(null);
+      refetch();
+    } catch (e) {
+      toast(e.message, 'error');
+    } finally {
+      setBusy(false);
+    }
+  }
 
   if (status === 'loading') return <SkeletonList count={4} />;
   if (status === 'error') return <ErrorState message={error} onRetry={refetch} />;
@@ -83,13 +100,26 @@ function UpcomingTab() {
         <div className="day-group" key={key}>
           <div className="day-group-label">{formatDayHeading(key)}</div>
           {appts.map((a) => (
-            <div className="card appt-row" key={a.id}>
-              <div className="appt-time">{formatTime(a.start_at)}</div>
-              <div className="appt-info">
-                <div className="name">{a.customer_name}</div>
-                <div className="service">{a.service_name || 'Appointment'}</div>
-              </div>
-              <StatusBadge status={a.status} />
+            <div className="card appt-row-wrap" key={a.id}>
+              <button className="appt-row" onClick={() => setOpenId(openId === a.id ? null : a.id)}>
+                <div className="appt-time">{formatTime(a.start_at)}</div>
+                <div className="appt-info">
+                  <div className="name">{a.customer_name}</div>
+                  <div className="service">{a.service_name || 'Appointment'}</div>
+                </div>
+                <StatusBadge status={a.status} />
+              </button>
+              {openId === a.id && (
+                <div className="row-actions appt-actions">
+                  {a.status !== 'completed' && (
+                    <button className="btn btn-ghost btn-sm" disabled={busy} onClick={() => act(() => api.updateAppointment(a.id, { status: 'completed' }), 'Marked completed.')}>Mark completed</button>
+                  )}
+                  {a.status !== 'cancelled' && (
+                    <button className="btn btn-ghost btn-sm" disabled={busy} onClick={() => act(() => api.updateAppointment(a.id, { status: 'cancelled' }), 'Appointment cancelled.')}>Cancel</button>
+                  )}
+                  <button className="btn btn-ghost btn-sm danger-text" style={{ marginLeft: 'auto' }} disabled={busy} onClick={() => act(() => api.deleteAppointment(a.id), 'Appointment deleted.')}>Delete</button>
+                </div>
+              )}
             </div>
           ))}
         </div>

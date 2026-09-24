@@ -1,0 +1,36 @@
+.login {
+  min-height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: calc(env(safe-area-inset-top, 0px) + 24px) 20px calc(env(safe-area-inset-bottom, 0px) + 24px);
+}
+
+.login-inner {
+  width: 100%;
+  max-width: 420px;
+  animation: screen-in 0.4s var(--ease);
+}
+
+.login-title {
+  font-size: 32px;
+  line-height: 1.1;
+  margin: 6px 0 12px;
+}
+
+.login-sub {
+  color: var(--ink-soft);
+  font-size: 15px;
+  line-height: 1.5;
+  margin-bottom: 24px;
+}
+
+.login-inner .field { margin-bottom: 16px; }
+.login-inner .btn-block { margin-top: 4px; }
+
+.login-error {
+  color: var(--danger);
+  font-size: 13.5px;
+  font-weight: 600;
+  margin: -4px 0 14px;
+}

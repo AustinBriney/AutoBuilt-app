@@ -3,6 +3,7 @@ import { api } from '../lib/api.js';
 import { useAsync } from '../lib/useAsync.js';
 import { useToast } from '../lib/toast.jsx';
 import { useTheme } from '../lib/theme.jsx';
+import { useAuth } from '../lib/auth.jsx';
 import Avatar from '../components/Avatar.jsx';
 import { SkeletonList } from '../components/Skeleton.jsx';
 import { ErrorState } from '../components/EmptyState.jsx';
@@ -12,8 +13,10 @@ import './Settings.css';
 export default function Settings() {
   const { status, data, error, refetch } = useAsync(() => api.getBusiness(), []);
   const integrations = useAsync(() => api.getIntegrations(), []);
+  const calcomInfo = useAsync(() => api.getCalcomWebhookInfo(), []);
   const toast = useToast();
   const { theme, setTheme } = useTheme();
+  const { logout } = useAuth();
   const [form, setForm] = useState(null);
   const [saving, setSaving] = useState(false);
 
@@ -70,7 +73,7 @@ export default function Settings() {
           <EditableField label="Business name" value={form.name} onSave={(v) => saveField({ name: v })} />
           <EditableField label="Owner name" value={form.owner_name} onSave={(v) => saveField({ owner_name: v })} />
           <EditableField label="Phone" value={form.phone} onSave={(v) => saveField({ phone: v })} />
-          <EditableField label="Booking link" value={form.booking_url} onSave={(v) => saveField({ booking_url: v })} last />
+          <EditableField label="Customer booking link" value={form.booking_url} onSave={(v) => saveField({ booking_url: v })} last />
         </div>
       </div>
 
@@ -93,7 +96,53 @@ export default function Settings() {
         </div>
       </div>
 
-      <TestTools toast={toast} />
+      <div className="settings-section">
+        <h2>Cal.com</h2>
+        <div className="card" style={{ padding: 16 }}>
+          {calcomInfo.status === 'success' ? (
+            <>
+              <p style={{ fontSize: 13, color: 'var(--ink-soft)', marginTop: 0 }}>
+                In Cal.com: Settings → Developer → Webhooks → New webhook. Paste these two values in, leave
+                "Booking created", "Booking cancelled", and "Booking rescheduled" checked.
+              </p>
+              <CopyField label="Webhook URL" value={calcomInfo.data.webhookUrl} />
+              <CopyField label="Secret" value={calcomInfo.data.secret} last />
+            </>
+          ) : (
+            <div className="desc">Loading…</div>
+          )}
+        </div>
+      </div>
+
+      <TestTools toast={toast} slug={form.slug} />
+
+      <div className="settings-section">
+        <button className="btn btn-secondary btn-block" onClick={logout}>Sign out</button>
+      </div>
+    </div>
+  );
+}
+
+function CopyField({ label, value, last }) {
+  const [copied, setCopied] = useState(false);
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // Clipboard API can be unavailable (e.g. non-HTTPS); the value is still selectable in the input.
+    }
+  }
+  return (
+    <div style={{ marginBottom: last ? 0 : 16 }}>
+      <label style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--ink-soft)', display: 'block', marginBottom: 6 }}>{label}</label>
+      <div style={{ display: 'flex', gap: 8 }}>
+        <input className="input" value={value || ''} readOnly onFocus={(e) => e.target.select()} style={{ flex: 1 }} />
+        <button type="button" className="btn btn-secondary" onClick={copy} style={{ whiteSpace: 'nowrap' }}>
+          {copied ? 'Copied' : 'Copy'}
+        </button>
+      </div>
     </div>
   );
 }
@@ -120,7 +169,7 @@ function EditableField({ label, value, onSave, last }) {
 // hanging up. This is what stands in for real Cal.com/Twilio webhooks
 // until those are wired up, and it's exactly the tool needed to run the
 // 17-step mock-client test end to end.
-function TestTools({ toast }) {
+function TestTools({ toast, slug }) {
   const [phone, setPhone] = useState('+12255550199');
   const [name, setName] = useState('Austin Test');
   const [busy, setBusy] = useState('');
@@ -155,19 +204,19 @@ function TestTools({ toast }) {
             disabled={busy}
             onClick={() =>
               run('website booking', () =>
-                api.simulateBooking({ customerName: name, phone, startAt: new Date(Date.now() + 30 * 60000).toISOString(), durationMin: 30 })
+                api.simulateBooking(slug, { customerName: name, phone, startAt: new Date(Date.now() + 30 * 60000).toISOString(), durationMin: 30 })
               )
             }
           >
             {busy === 'website booking' ? 'Booking…' : 'Simulate a website booking'}
           </button>
-          <button className="btn btn-secondary" disabled={busy} onClick={() => run('missed call', () => api.simulateMissedCall({ phone, name }))}>
+          <button className="btn btn-secondary" disabled={busy} onClick={() => run('missed call', () => api.simulateMissedCall(slug, { phone, name }))}>
             {busy === 'missed call' ? 'Sending…' : 'Simulate a missed call'}
           </button>
           <button
             className="btn btn-secondary"
             disabled={busy}
-            onClick={() => run('inbound text', () => api.simulateInboundSms({ phone, name, body: 'Hey, is this the right number to book?' }))}
+            onClick={() => run('inbound text', () => api.simulateInboundSms(slug, { phone, name, body: 'Hey, is this the right number to book?' }))}
           >
             {busy === 'inbound text' ? 'Sending…' : 'Simulate an inbound text'}
           </button>
