@@ -14,23 +14,23 @@
   --success: #4b6b4e;
   --success-soft: rgba(75, 107, 78, 0.11);
 
-  --bg: #f6f1e7;
-  --bg-elevated: #eee7d7;
-  --card: #fcfaf4;
-  --card-hover: #f5f0e4;
-  --ink: #1e2a22;
-  --ink-soft: #4c5348;
-  --ink-faint: #8a8b7c;
-  --line: rgba(30, 42, 34, 0.14);
-  --line-strong: rgba(30, 42, 34, 0.22);
+  --bg: #f7f4ee;
+  --bg-elevated: #efe9dd;
+  --card: #ffffff;
+  --card-hover: #f6f2ea;
+  --ink: #23211e;
+  --ink-soft: #6a655e;
+  --ink-faint: #9c968b;
+  --line: rgba(35, 33, 30, 0.12);
+  --line-strong: rgba(35, 33, 30, 0.2);
 
   --radius-sm: 10px;
   --radius-md: 16px;
   --radius-lg: 22px;
   --radius-pill: 999px;
 
-  --shadow-card: 0 10px 26px -18px rgba(30, 42, 34, 0.35);
-  --shadow-pop: 0 20px 44px -16px rgba(30, 42, 34, 0.4);
+  --shadow-card: 0 10px 26px -18px rgba(35, 33, 30, 0.28);
+  --shadow-pop: 0 20px 44px -16px rgba(35, 33, 30, 0.32);
 
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
   --nav-height: 64px;
