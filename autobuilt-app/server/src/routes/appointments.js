@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { randomUUID } from 'node:crypto';
 import dayjs from 'dayjs';
 import db from '../db/index.js';
-import { getCurrentBusinessId } from './business.js';
+import { getCurrentBusinessId } from '../lib/requestContext.js';
 import { findOrCreateCustomer } from '../lib/customers.js';
 import { scheduleReminder, scheduleReviewRequest } from '../lib/automations.js';
 
@@ -86,4 +86,17 @@ appointmentsRouter.patch('/:id', (req, res) => {
     scheduleReviewRequest({ businessId, customerId: updated.customer_id, appointmentId: updated.id });
   }
   res.json(updated);
+});
+
+// Permanently remove an appointment. Any scheduled automations tied to it
+// (reminders, review requests) are cleared first so nothing fires for a
+// booking that no longer exists.
+appointmentsRouter.delete('/:id', (req, res) => {
+  const businessId = getCurrentBusinessId();
+  const remove = db.transaction((id) => {
+    db.prepare('DELETE FROM automation_events WHERE appointment_id = ? AND business_id = ?').run(id, businessId);
+    db.prepare('DELETE FROM appointments WHERE id = ? AND business_id = ?').run(id, businessId);
+  });
+  remove(req.params.id);
+  res.status(204).end();
 });

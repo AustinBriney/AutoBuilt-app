@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { randomUUID } from 'node:crypto';
 import db from '../db/index.js';
-import { getCurrentBusinessId } from './business.js';
+import { getCurrentBusinessId } from '../lib/requestContext.js';
 
 export const servicesRouter = Router();
 
@@ -44,6 +44,13 @@ servicesRouter.patch('/:id', (req, res) => {
 
 servicesRouter.delete('/:id', (req, res) => {
   const businessId = getCurrentBusinessId();
-  db.prepare('DELETE FROM services WHERE id = ? AND business_id = ?').run(req.params.id, businessId);
+  // A service may be referenced by past/upcoming appointments (foreign key).
+  // Unlink it from those first so history is preserved (they show as a generic
+  // "Appointment") instead of the delete failing on a constraint.
+  const remove = db.transaction((id) => {
+    db.prepare('UPDATE appointments SET service_id = NULL WHERE service_id = ? AND business_id = ?').run(id, businessId);
+    db.prepare('DELETE FROM services WHERE id = ? AND business_id = ?').run(id, businessId);
+  });
+  remove(req.params.id);
   res.status(204).end();
 });

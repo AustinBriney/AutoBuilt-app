@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { randomUUID } from 'node:crypto';
 import db from '../db/index.js';
-import { getCurrentBusinessId } from './business.js';
+import { getCurrentBusinessId } from '../lib/requestContext.js';
 
 export const availabilityRouter = Router();
 

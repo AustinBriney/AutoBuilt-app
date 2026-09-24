@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import db from '../db/index.js';
-import { getCurrentBusinessId } from './business.js';
+import { getCurrentBusinessId } from '../lib/requestContext.js';
 import { getCustomerDetail } from '../lib/customers.js';
 
 export const customersRouter = Router();

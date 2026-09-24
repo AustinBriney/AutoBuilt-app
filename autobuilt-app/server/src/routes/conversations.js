@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import db from '../db/index.js';
-import { getCurrentBusinessId } from './business.js';
+import { getCurrentBusinessId } from '../lib/requestContext.js';
 import { sendOutboundMessage } from '../lib/messaging.js';
 
 export const conversationsRouter = Router();
