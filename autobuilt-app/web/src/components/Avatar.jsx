@@ -1,6 +1,8 @@
 import { initials } from '../lib/format.js';
 
-const palette = ['#c9a35a', '#7fa88f', '#a17bb0', '#c17d5e', '#6fa0bf'];
+// Muted, editorial tones that sit comfortably with the paper/ink/brass
+// palette instead of clashing with it.
+const palette = ['#ad7c34', '#8c6a3e', '#8c3430', '#5b6b78', '#7a6a5d'];
 
 function hashHue(str = '') {
   let h = 0;
