@@ -15,4 +15,27 @@ db.pragma('foreign_keys = ON');
 const schema = fs.readFileSync(path.join(__dirname, 'schema.sql'), 'utf8');
 db.exec(schema);
 
+// `CREATE TABLE IF NOT EXISTS` in schema.sql only helps brand-new tables —
+// on a real (persistent) database that already exists from an earlier
+// version, adding a column to an existing table needs an explicit ALTER.
+// Right now Render's disk is ephemeral so every deploy gets a fresh file
+// and this is a no-op, but it's here so a future persistent-disk/Postgres
+// upgrade doesn't silently break on old rows. Safe to run every boot —
+// "duplicate column" errors from an already-migrated DB are swallowed.
+const migrations = [
+  `ALTER TABLE businesses ADD COLUMN calcom_webhook_secret TEXT`,
+  `ALTER TABLE services ADD COLUMN calcom_event_type_id TEXT`,
+  `ALTER TABLE appointments ADD COLUMN external_ref TEXT`,
+];
+for (const sql of migrations) {
+  try {
+    db.exec(sql);
+  } catch (err) {
+    if (!/duplicate column name/i.test(err.message)) throw err;
+  }
+}
+db.exec(
+  `CREATE UNIQUE INDEX IF NOT EXISTS idx_appts_external_ref ON appointments(business_id, external_ref) WHERE external_ref IS NOT NULL`
+);
+
 export default db;

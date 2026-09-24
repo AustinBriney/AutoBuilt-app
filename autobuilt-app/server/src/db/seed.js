@@ -1,44 +1,63 @@
 import { randomUUID } from 'node:crypto';
 import dayjs from 'dayjs';
 import db from './index.js';
+import { hashPassword } from '../lib/auth.js';
 import { scheduleReminder } from '../lib/automations.js';
 import { recordInboundMessage } from '../lib/messaging.js';
 
-// Wipe and reseed — this is a mock-client demo environment, not production data.
-// Intentionally minimal: exactly ONE example of each thing (service, customer,
-// appointment, inbox message, weekly-hours entry) so the app reads clean and a
-// new client can immediately see the shape of everything.
-db.exec(`
-  DELETE FROM automation_events;
-  DELETE FROM messages;
-  DELETE FROM conversations;
-  DELETE FROM appointments;
-  DELETE FROM customers;
-  DELETE FROM time_off;
-  DELETE FROM availability_rules;
-  DELETE FROM services;
-  DELETE FROM businesses;
-`);
+// This runs on every deploy (folded into the Render build command), so it
+// must be safe to run against a database that already has real client data
+// in it. If ANY business already exists, do nothing — seeding only ever
+// creates the one demo business on a genuinely empty database.
+const existingCount = db.prepare('SELECT COUNT(*) as n FROM businesses').get().n;
+if (existingCount > 0) {
+  console.log(`Seed skipped — ${existingCount} business(es) already exist. Data is safe.`);
+  process.exit(0);
+}
 
 const businessId = randomUUID();
+const DEMO_SLUG = 'fade-district-demo';
+const DEMO_EMAIL = 'demo@fadedistrict.example';
+const DEMO_PASSWORD = 'FadeDistrict2026!';
+// Fixed (not random) so it can be pasted into a Cal.com webhook's "Secret"
+// field ahead of time, before this code is even deployed — a real client's
+// signup-created secret is random (see routes/auth.js); this one only ever
+// backs the demo business.
+const DEMO_CALCOM_SECRET = process.env.AUTOBUILT_DEMO_CALCOM_SECRET || 'fade-district-demo-secret-2026';
+
 db.prepare(
-  `INSERT INTO businesses (id, name, owner_name, phone, email, address, booking_url, onboarded)
-   VALUES (?, ?, ?, ?, ?, ?, ?, 1)`
+  `INSERT INTO businesses (id, slug, name, owner_name, phone, email, address, booking_url, onboarded, calcom_webhook_secret)
+   VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?)`
 ).run(
   businessId,
+  DEMO_SLUG,
   'Fade District Barbershop',
   'Marcus Reed',
   '+12255550142',
   'marcus@fadedistrict.example',
   '4400 Government St, Baton Rouge, LA',
-  'https://autobuiltsystems.com/book/fade-district'
+  'https://autobuiltsystems.com/book/fade-district',
+  DEMO_CALCOM_SECRET
 );
 
-// One service
+const accountId = randomUUID();
+const passwordHash = await hashPassword(DEMO_PASSWORD);
+db.prepare('INSERT INTO auth_accounts (id, business_id, email, password_hash) VALUES (?, ?, ?, ?)').run(
+  accountId, businessId, DEMO_EMAIL, passwordHash
+);
+
+// One service, linked to the "Signature Fade" event type on Austin's own
+// Cal.com account (app.cal.com) so a real booking there maps back to this
+// exact service instead of creating an unlinked appointment.
 const serviceId = randomUUID();
+// Real event type ID for "Signature Fade" (45m) on Austin's own Cal.com
+// account (app.cal.com/event-types/7202246), created and wired up with a
+// matching webhook (-> /api/public/fade-district-demo/calcom-webhook,
+// secret DEMO_CALCOM_SECRET above) for end-to-end testing.
+const DEMO_CALCOM_EVENT_TYPE_ID = process.env.AUTOBUILT_DEMO_CALCOM_EVENT_TYPE_ID || '7202246';
 db.prepare(
-  'INSERT INTO services (id, business_id, name, description, price_cents, duration_min) VALUES (?, ?, ?, ?, ?, ?)'
-).run(serviceId, businessId, 'Signature Fade', 'Classic tapered fade, straight razor line-up.', 4000, 45);
+  'INSERT INTO services (id, business_id, name, description, price_cents, duration_min, calcom_event_type_id) VALUES (?, ?, ?, ?, ?, ?, ?)'
+).run(serviceId, businessId, 'Signature Fade', 'Classic tapered fade, straight razor line-up.', 4000, 45, DEMO_CALCOM_EVENT_TYPE_ID);
 
 // One weekly-hours entry (Monday 9:00 AM – 5:00 PM) as the example
 db.prepare(
@@ -66,4 +85,6 @@ scheduleReminder({ businessId, customerId, appointmentId, appointmentStartAt: st
 // One inbox message: an inbound question from the same customer, unanswered.
 recordInboundMessage({ businessId, customerId, body: 'Hey, do you have any openings this week?' });
 
-console.log('Seed complete. Business:', businessId);
+console.log('Seed complete (first run — database was empty).');
+console.log('Demo business:', businessId, `(slug: ${DEMO_SLUG})`);
+console.log('Demo login ->', DEMO_EMAIL, '/', DEMO_PASSWORD);

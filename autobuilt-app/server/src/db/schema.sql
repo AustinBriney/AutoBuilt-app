@@ -4,6 +4,7 @@
 
 CREATE TABLE IF NOT EXISTS businesses (
   id TEXT PRIMARY KEY,
+  slug TEXT UNIQUE,
   name TEXT NOT NULL,
   owner_name TEXT,
   phone TEXT,
@@ -20,6 +21,18 @@ CREATE TABLE IF NOT EXISTS businesses (
   winback_days INTEGER NOT NULL DEFAULT 45,
   reminder_hours_before INTEGER NOT NULL DEFAULT 24,
   review_delay_hours INTEGER NOT NULL DEFAULT 2,
+  calcom_webhook_secret TEXT, -- verifies X-Cal-Signature-256 on inbound Cal.com webhooks
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- One login per business owner. Multi-tenant: every other table already
+-- carries business_id, this is what actually separates one client's data
+-- from another's at the door instead of trusting a single-row assumption.
+CREATE TABLE IF NOT EXISTS auth_accounts (
+  id TEXT PRIMARY KEY,
+  business_id TEXT NOT NULL REFERENCES businesses(id),
+  email TEXT NOT NULL UNIQUE,
+  password_hash TEXT NOT NULL,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -32,6 +45,7 @@ CREATE TABLE IF NOT EXISTS services (
   duration_min INTEGER NOT NULL DEFAULT 30,
   active INTEGER NOT NULL DEFAULT 1,
   sort_order INTEGER NOT NULL DEFAULT 0,
+  calcom_event_type_id TEXT, -- links this service to a Cal.com event type, for webhook -> service mapping
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -74,7 +88,8 @@ CREATE TABLE IF NOT EXISTS appointments (
   start_at TEXT NOT NULL,
   end_at TEXT NOT NULL,
   status TEXT NOT NULL DEFAULT 'booked', -- booked | confirmed | completed | cancelled | no_show
-  source TEXT NOT NULL DEFAULT 'manual', -- website | manual
+  source TEXT NOT NULL DEFAULT 'manual', -- website | manual | cal.com
+  external_ref TEXT, -- Cal.com booking `uid` — lets webhook retries/cancels/reschedules find this row again
   notes TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
@@ -115,6 +130,7 @@ CREATE TABLE IF NOT EXISTS automation_events (
 );
 
 CREATE INDEX IF NOT EXISTS idx_appts_business ON appointments(business_id, start_at);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_appts_external_ref ON appointments(business_id, external_ref) WHERE external_ref IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_customers_business ON customers(business_id);
 CREATE INDEX IF NOT EXISTS idx_messages_conv ON messages(conversation_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_autoevents_due ON automation_events(status, scheduled_for);
