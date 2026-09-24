@@ -1,10 +1,18 @@
 const BASE = '/api';
 
+// Set by AuthProvider whenever the signed-in token changes. Kept outside
+// React state so every api.* call (including ones fired from outside a
+// component) always sends the current token without threading it through
+// every function signature.
+let authToken = null;
+export function setAuthToken(token) {
+  authToken = token;
+}
+
 async function request(path, options = {}) {
-  const res = await fetch(`${BASE}${path}`, {
-    headers: { 'Content-Type': 'application/json' },
-    ...options,
-  });
+  const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
+  if (authToken) headers.Authorization = `Bearer ${authToken}`;
+  const res = await fetch(`${BASE}${path}`, { ...options, headers });
   if (!res.ok) {
     let message = `Request failed (${res.status})`;
     try {
@@ -20,10 +28,18 @@ async function request(path, options = {}) {
 }
 
 export const api = {
+  // Auth
+  signup: (data) => request('/auth/signup', { method: 'POST', body: JSON.stringify(data) }),
+  login: (data) => request('/auth/login', { method: 'POST', body: JSON.stringify(data) }),
+  me: () => request('/auth/me'),
+
   // Business
   getBusiness: () => request('/business'),
   updateBusiness: (data) => request('/business', { method: 'PATCH', body: JSON.stringify(data) }),
   getIntegrations: () => request('/business/integrations'),
+  getCalcomWebhookInfo: () => request('/business/calcom-webhook-info'),
+  linkServiceToCalcom: (serviceId, calcomEventTypeId) =>
+    request('/business/calcom-webhook-info/link-service', { method: 'PATCH', body: JSON.stringify({ serviceId, calcomEventTypeId }) }),
 
   // Services
   getServices: () => request('/services'),
@@ -51,6 +67,7 @@ export const api = {
   },
   createAppointment: (data) => request('/appointments', { method: 'POST', body: JSON.stringify(data) }),
   updateAppointment: (id, data) => request(`/appointments/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteAppointment: (id) => request(`/appointments/${id}`, { method: 'DELETE' }),
 
   // Conversations
   getConversations: () => request('/conversations'),
@@ -60,8 +77,10 @@ export const api = {
   // Dashboard
   getDashboardSummary: () => request('/dashboard/summary'),
 
-  // Public (simulated external triggers, used by the Settings "test tools" panel)
-  simulateBooking: (data) => request('/public/book', { method: 'POST', body: JSON.stringify(data) }),
-  simulateInboundSms: (data) => request('/public/inbound-sms', { method: 'POST', body: JSON.stringify(data) }),
-  simulateMissedCall: (data) => request('/public/missed-call', { method: 'POST', body: JSON.stringify(data) }),
+  // Public (simulated external triggers, used by the Settings "test tools" panel).
+  // These hit the slug-scoped public routes — same ones a real client site or
+  // Twilio webhook would call — so testing here exercises the real path.
+  simulateBooking: (slug, data) => request(`/public/${slug}/book`, { method: 'POST', body: JSON.stringify(data) }),
+  simulateInboundSms: (slug, data) => request(`/public/${slug}/inbound-sms`, { method: 'POST', body: JSON.stringify(data) }),
+  simulateMissedCall: (slug, data) => request(`/public/${slug}/missed-call`, { method: 'POST', body: JSON.stringify(data) }),
 };
