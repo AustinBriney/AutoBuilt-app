@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import { authRouter } from './routes/auth.js';
 import { businessRouter } from './routes/business.js';
 import { servicesRouter } from './routes/services.js';
 import { availabilityRouter } from './routes/availability.js';
@@ -8,23 +9,32 @@ import { appointmentsRouter } from './routes/appointments.js';
 import { conversationsRouter } from './routes/conversations.js';
 import { publicRouter } from './routes/public.js';
 import { dashboardRouter } from './routes/dashboard.js';
+import { requireAuth } from './middleware/requireAuth.js';
 import { runAutomationTick } from './lib/automations.js';
 import './db/index.js'; // ensures schema is applied on boot
 
 const app = express();
 app.use(cors());
-app.use(express.json());
+// Keep the raw bytes around alongside the parsed body — Cal.com's webhook
+// signature is an HMAC over the exact raw JSON, not the reserialized object.
+app.use(express.json({ verify: (req, res, buf) => { req.rawBody = buf; } }));
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 
-app.use('/api/business', businessRouter);
-app.use('/api/services', servicesRouter);
-app.use('/api/availability', availabilityRouter);
-app.use('/api/customers', customersRouter);
-app.use('/api/appointments', appointmentsRouter);
-app.use('/api/conversations', conversationsRouter);
+// Signup/login issue the token; everything else below requires one.
+// /api/public/:slug/* is the exception — that's the customer-facing side
+// (booking pages, SMS/call webhooks), which has no AutoBuilt login of its
+// own and is scoped by business slug instead of a token.
+app.use('/api/auth', authRouter);
 app.use('/api/public', publicRouter);
-app.use('/api/dashboard', dashboardRouter);
+
+app.use('/api/business', requireAuth, businessRouter);
+app.use('/api/services', requireAuth, servicesRouter);
+app.use('/api/availability', requireAuth, availabilityRouter);
+app.use('/api/customers', requireAuth, customersRouter);
+app.use('/api/appointments', requireAuth, appointmentsRouter);
+app.use('/api/conversations', requireAuth, conversationsRouter);
+app.use('/api/dashboard', requireAuth, dashboardRouter);
 
 app.use((err, req, res, _next) => {
   console.error(err);
