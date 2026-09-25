@@ -8,6 +8,11 @@ const DB_PATH = process.env.AUTOBUILT_DB || path.join(__dirname, '../../data/aut
 
 fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
 
+// Exported so other modules (e.g. the logo upload route) can locate the same
+// persistent directory the SQLite file lives on, without recomputing
+// AUTOBUILT_DB parsing themselves.
+export const PERSISTENT_DIR = path.dirname(DB_PATH);
+
 export const db = new Database(DB_PATH);
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
@@ -26,6 +31,8 @@ const migrations = [
   `ALTER TABLE businesses ADD COLUMN calcom_webhook_secret TEXT`,
   `ALTER TABLE services ADD COLUMN calcom_event_type_id TEXT`,
   `ALTER TABLE appointments ADD COLUMN external_ref TEXT`,
+  `ALTER TABLE businesses ADD COLUMN plan TEXT`,
+  `ALTER TABLE businesses ADD COLUMN logo_url TEXT`,
 ];
 for (const sql of migrations) {
   try {
