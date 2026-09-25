@@ -1,10 +1,24 @@
 import { Router } from 'express';
-import db from '../db/index.js';
+import fs from 'node:fs';
+import path from 'node:path';
+import db, { PERSISTENT_DIR } from '../db/index.js';
 import { getSubscriptionStatus } from '../integrations/stripe.js';
 import { isLiveMode } from '../integrations/twilio.js';
 import { getCurrentBusinessId } from '../lib/requestContext.js';
 
 export const businessRouter = Router();
+
+// Logos live in a `logos/` subfolder of the SAME persistent directory the
+// SQLite file lives on, so they survive redeploys exactly like the DB does.
+const LOGOS_DIR = path.join(PERSISTENT_DIR, 'logos');
+
+const LOGO_MIME_TO_EXT = {
+  'image/png': 'png',
+  'image/jpeg': 'jpg',
+  'image/jpg': 'jpg',
+  'image/webp': 'webp',
+  'image/gif': 'gif',
+};
 
 businessRouter.get('/', (req, res) => {
   const biz = db.prepare('SELECT * FROM businesses WHERE id = ?').get(getCurrentBusinessId());
@@ -25,6 +39,39 @@ businessRouter.patch('/', (req, res) => {
   const setClause = updates.map(([k]) => `${k} = ?`).join(', ');
   const values = updates.map(([, v]) => v);
   db.prepare(`UPDATE businesses SET ${setClause} WHERE id = ?`).run(...values, businessId);
+  res.json(db.prepare('SELECT * FROM businesses WHERE id = ?').get(businessId));
+});
+
+// Accepts a data URI (simplest for a plain <input type="file"> + FileReader
+// flow in the browser — avoids needing multer/multipart parsing). Writes the
+// decoded image to the persistent disk under logos/<businessId>.<ext> and
+// points businesses.logo_url at a servable, cache-busted URL.
+businessRouter.post('/logo', (req, res) => {
+  const businessId = getCurrentBusinessId();
+  const { dataUrl } = req.body || {};
+  if (typeof dataUrl !== 'string') return res.status(400).json({ error: 'dataUrl is required.' });
+
+  const match = /^data:([^;]+);base64,(.+)$/s.exec(dataUrl);
+  if (!match) return res.status(400).json({ error: 'dataUrl must be a base64 data URI.' });
+
+  const [, mimeType, base64Payload] = match;
+  const ext = LOGO_MIME_TO_EXT[mimeType.toLowerCase()];
+  if (!ext) return res.status(400).json({ error: 'Unsupported image type. Use PNG, JPEG, WEBP, or GIF.' });
+
+  let buffer;
+  try {
+    buffer = Buffer.from(base64Payload, 'base64');
+  } catch {
+    return res.status(400).json({ error: 'Could not decode image data.' });
+  }
+  if (!buffer.length) return res.status(400).json({ error: 'Image data is empty.' });
+
+  fs.mkdirSync(LOGOS_DIR, { recursive: true });
+  const filePath = path.join(LOGOS_DIR, `${businessId}.${ext}`);
+  fs.writeFileSync(filePath, buffer);
+
+  const logoUrl = `/uploads/logos/${businessId}.${ext}?v=${Date.now()}`;
+  db.prepare('UPDATE businesses SET logo_url = ? WHERE id = ?').run(logoUrl, businessId);
   res.json(db.prepare('SELECT * FROM businesses WHERE id = ?').get(businessId));
 });
 
