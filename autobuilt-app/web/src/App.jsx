@@ -14,6 +14,7 @@ import CustomerDetail from './pages/CustomerDetail.jsx';
 import Settings from './pages/Settings.jsx';
 import Onboarding from './pages/Onboarding.jsx';
 import Login from './pages/Login.jsx';
+import Admin from './pages/Admin.jsx';
 
 function Shell() {
   const { business, refreshBusiness } = useAuth();
@@ -64,11 +65,22 @@ export default function App() {
   return (
     <ThemeProvider>
       <ToastProvider>
-        <AuthProvider>
-          <HashRouter>
-            <Gate />
-          </HashRouter>
-        </AuthProvider>
+        <HashRouter>
+          <Routes>
+            {/* The admin dashboard is Austin's own internal tool, gated by a
+                shared secret (see pages/Admin.jsx) — not the client business
+                login/JWT flow, so it lives outside AuthProvider/Gate entirely. */}
+            <Route path="/admin/*" element={<Admin />} />
+            <Route
+              path="/*"
+              element={
+                <AuthProvider>
+                  <Gate />
+                </AuthProvider>
+              }
+            />
+          </Routes>
+        </HashRouter>
       </ToastProvider>
     </ThemeProvider>
   );
