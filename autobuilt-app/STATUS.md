@@ -1,8 +1,8 @@
 # AutoBuilt — build status / where I left off
 
-_Last updated by Claude (Sonnet 5) session on 2026-09-24. Everything below is LIVE and verified end-to-end.
-This update: full pre-mock-closing QA pass across the whole app + a new customer-delete feature.
-**Read the "Do not redeploy the backend before the demo" warning below before touching anything.**_
+_Last updated by Claude (Sonnet 5) session on 2026-09-25. Everything below is LIVE and verified end-to-end.
+This update: real fix for the persistent-data bug (see below), plus the start of the
+client-onboarding pipeline (admin-set plan, logo upload, admin dashboard, per-client website)._
 
 ## Live URLs
 - App (frontend, Render static site): https://autobuilt-app.onrender.com
@@ -18,10 +18,13 @@ This update: full pre-mock-closing QA pass across the whole app + a new customer
   account on the production app — landed on a genuinely blank onboarding flow (no barbershop
   residue), finished setup, and the dashboard showed 0 appointments / 0 clients as expected.
   Signed out and back in cleanly.
-- **Idempotent seed**: `seed.js` itself refuses to create a second business if one already exists
-  in the database — but see the **critical warning below**: Render's build command deletes the
-  database file before `seed.js` even runs, so this idempotency never actually gets a chance to
-  protect anything on Render today.
+- **Persistent data — real fix, verified live** (see full writeup below): `autobuilt-api` now has
+  a Render persistent disk (1 GB, `/var/data`, $0.25/mo) and the SQLite file lives there
+  (`AUTOBUILT_DB=/var/data/autobuilt.db`). Seeding runs from `server/src/index.js` at server boot
+  (`seedIfEmpty()`, exported from `seed.js`) — **not** from the build or pre-deploy command, both
+  of which run on separate ephemeral compute with no disk access at all (this was the actual bug,
+  see below). `seedIfEmpty()` only ever creates the demo business on a genuinely empty database, so
+  it's safe to leave running on every boot even once real client data exists.
 - **Customer delete** (new this session): `DELETE /api/customers/:id` cascades to that customer's
   messages, conversation, automation events, and appointments, then the customer record itself —
   no orphaned rows left behind. Wired up end-to-end: `api.deleteCustomer()` in the web client, and
@@ -43,28 +46,54 @@ This update: full pre-mock-closing QA pass across the whole app + a new customer
   Automations tab, no backend/connected-services detail), Cal.com webhook URL + secret shown in
   Settings, Test Tools kept for manual QA.
 
-## ⚠️ CRITICAL: do not redeploy the `autobuilt-api` backend before the mock closing
-Confirmed this session: the `autobuilt-api` Render web service has **no persistent disk attached**,
-and its build command is `npm install && rm -rf data && npm run seed`. That means **every single
-backend deploy deletes the entire SQLite database and recreates it from pure seed defaults** —
-one business ("Fade District Barbershop"), one customer ("Dorian Lewis"), one service, one
-appointment, and Monday-only 9–5 hours. `seed.js`'s own "only seed if empty" check never gets a
-chance to matter, because the data directory is already gone by the time it runs.
+## Persistent data — what was actually wrong, and the real fix (2026-09-25)
+**Original bug** (found 2026-09-24): `autobuilt-api` had no persistent disk, and its build command
+was `npm install && rm -rf data && npm run seed` — every deploy wiped the SQLite file back to pure
+seed defaults, which is catastrophic for a real client's data.
 
-This isn't a new bug — it's a pre-existing gap in how the backend is deployed — but it got
-triggered for real this session (the customer-delete backend push wiped the demo data, including
-the custom Tue–Sat 9–6 hours from the prior session) and had to be manually recovered: re-login
-(the old JWT pointed at a business ID that no longer existed) + re-adding the weekly hours by hand.
-Verified back to the correct state as of this session (Customers/Inbox clean, hours restored).
+**First fix attempt (wrong)**: attached a 1 GB Render persistent disk at `/var/data` ($0.25/mo,
+already covered by Austin's existing Render plan — no new cost), set
+`AUTOBUILT_DB=/var/data/autobuilt.db`, removed `rm -rf data` from the Build Command, and moved
+`npm run seed` into Render's **Pre-Deploy Command** (which Render's own dashboard UI describes as
+"useful for database migrations"). This deployed cleanly with no errors and printed a convincing
+"Seed complete" log — but logging back in after the deploy failed with "Incorrect email or
+password", and `GET /api/public/fade-district-demo/services` returned 404 "Unknown business."
+Redeploying again reproduced the exact same "first run — database was empty" seed output with a
+**different** business ID each time — proof the data wasn't actually surviving between deploys.
 
-**Practical takeaway: don't push any more backend code or trigger another `autobuilt-api` deploy
-between now and the mock closing.** Frontend-only changes (the `autobuilt-app` static site) are
-safe — they don't touch the database. If backend changes become unavoidable, budget a few minutes
-afterward to re-verify the demo data and hours before anyone sees the app.
+**Root cause**: per Render's own docs (render.com/docs/disks), *"You can't access persistent disks
+during a service's build command or pre-deploy command (these commands run on separate compute)."*
+The Pre-Deploy Command runs in its own ephemeral container with no disk mounted at all. `npm run
+seed` was successfully creating `/var/data/autobuilt.db` and writing the demo business — just on
+a throwaway filesystem that gets discarded the instant that container exits. The **actual** running
+instance then starts with the real (empty) persistent disk mounted at `/var/data`, sees zero
+businesses, and has no login that matches what pre-deploy just printed.
 
-Before onboarding any real paying client, this needs a real fix — either a Render persistent disk
-or a move to managed Postgres — so a normal deploy doesn't erase a live client's data. Flagging
-this as a decision for Austin given the cost implications; not something to change unilaterally.
+**Real fix**: seeding now happens inside `server/src/index.js`, at server boot, right after
+`import './db/index.js'` opens the real (disk-backed) database — the only point in the whole
+deploy lifecycle that actually has the persistent disk mounted. `seed.js` was refactored to export
+`seedIfEmpty()` (still runnable standalone via `npm run seed` for local dev) instead of running as
+a top-level script with `process.exit()`, so it can be safely imported and awaited from the running
+server without killing it. Render's Pre-Deploy Command was cleared back to empty since it can't
+touch the disk anyway.
+
+**Verification status: CONFIRMED, with real cross-deploy evidence (2026-09-25).** After pushing the
+fix, Render's Pre-Deploy Command field still had the old (now-dead) `npm run seed` sitting in it —
+cleared it back to empty, which itself triggered a redeploy. Then triggered a **second**, fully
+manual "Deploy latest commit" a few minutes later. Both boots logged the same line:
+`Seed skipped — 1 business(es) already exist. Data is safe.` (not a fresh "Seed complete"). Logging
+in via `POST /api/auth/login` with `demo@fadedistrict.example` / `FadeDistrict2026!` after **each**
+of those deploys returned status 200 with the exact same business record both times: id
+`5886da26-80f9-4484-8186-2416b6537854`, `created_at: 2026-09-25 18:46:22` — not a newly-generated
+ID. That business also still had its real Cal.com-booked customer from an earlier session's live
+webhook test, which only survives if the actual disk-backed data (not a reseed) came through. That's
+the real test passing: the same row, unchanged, after two independent redeploys — not just "the
+deploy succeeded." If a future session needs to re-confirm: log in as
+`demo@fadedistrict.example` / `FadeDistrict2026!`, trigger a manual `autobuilt-api` redeploy, and
+confirm the SAME business ID / login still works afterward (not a freshly-generated one).
+
+Frontend-only changes (the `autobuilt-app` static site) never touched the database and were never
+part of this risk.
 
 ## Known/deferred issues (not blocking, revisit only if it comes up)
 - **PWA/service-worker caching**: the site registers a Workbox service worker (`registerSW.js`).
@@ -74,9 +103,10 @@ this as a decision for Austin given the cost implications; not something to chan
   worker and clear the `workbox-precache` cache (or remove the PWA from the home screen and
   re-add it), then hard-reload. Worth considering a `skipWaiting()` / update-prompt flow in the
   service worker registration if this becomes an ongoing nuisance for the user's own devices.
-- **SQLite on Render's ephemeral disk**: data does not persist across deploys unless a paid
-  persistent disk or managed Postgres is added. Not urgent while there's no real paying client
-  yet; revisit before onboarding a real client who needs data to survive a redeploy.
+- **SQLite persistence**: fixed this session (see the "Persistent data" section above) — data now
+  lives on a real Render persistent disk and survives redeploys. Still SQLite, single-instance
+  (a disk restricts the service to one instance and disables zero-downtime deploys, both fine at
+  this scale); revisit only if/when real concurrent multi-instance load becomes a thing.
 - **Twilio**: fully deprioritized per the user's explicit decision — do not act on it unless the
   user brings it up again. AutoBuilt's own A2P campaign was rejected (wrong entity to register as
   sender identity for an ISV/reseller model); real SMS will be set up per real client, under that
@@ -101,8 +131,10 @@ this as a decision for Austin given the cost implications; not something to chan
   synthetic `DataTransfer`/`File`/`change`-event script, then committing via the page's own
   commit UI. Slow but reliable; a full multi-file, multi-directory push of two feature branches
   worth of local commits was completed this way in one session.
-- Render's build command for `autobuilt-api` is `npm install && rm -rf data && npm run seed` —
-  it's `npm install`, not `npm ci`, so a stale `package-lock.json` is not a blocker; only
-  `package.json`'s `dependencies` list needs to be correct.
+- Render's build command for `autobuilt-api` is now just `npm install` (no seed step — see
+  "Persistent data" above for why) — it's `npm install`, not `npm ci`, so a stale
+  `package-lock.json` is not a blocker; only `package.json`'s `dependencies` list needs to be
+  correct. Pre-Deploy Command is empty (cleared — it has no disk access, so there's nothing useful
+  to run there for this app).
 - Both Render services (`autobuilt-api` web service, `autobuilt-app` static site) auto-deploy on
   push to `main` and were confirmed **Live** at the final commit after this session's push.
