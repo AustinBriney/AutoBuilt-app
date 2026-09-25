@@ -59,6 +59,7 @@ export const api = {
   getCustomers: (q) => request(`/customers${q ? `?q=${encodeURIComponent(q)}` : ''}`),
   getCustomer: (id) => request(`/customers/${id}`),
   updateCustomer: (id, data) => request(`/customers/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteCustomer: (id) => request(`/customers/${id}`, { method: 'DELETE' }),
 
   // Appointments
   getAppointments: (params) => {
