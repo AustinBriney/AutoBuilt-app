@@ -55,3 +55,22 @@ customersRouter.patch('/:id', (req, res) => {
   db.prepare(`UPDATE customers SET ${setClause} WHERE id = ?`).run(...values, req.params.id);
   res.json(db.prepare('SELECT * FROM customers WHERE id = ?').get(req.params.id));
 });
+
+// Permanently remove a customer and everything tied to them (appointments,
+// automations, conversation + messages). Used to clean up test/QA contacts
+// or a lead who asks to be forgotten — there's no undo.
+customersRouter.delete('/:id', (req, res) => {
+  const businessId = getCurrentBusinessId();
+  const existing = db.prepare('SELECT * FROM customers WHERE id = ? AND business_id = ?').get(req.params.id, businessId);
+  if (!existing) return res.status(404).json({ error: 'Customer not found.' });
+
+  const remove = db.transaction((id) => {
+    db.prepare('DELETE FROM messages WHERE customer_id = ? AND business_id = ?').run(id, businessId);
+    db.prepare('DELETE FROM conversations WHERE customer_id = ? AND business_id = ?').run(id, businessId);
+    db.prepare('DELETE FROM automation_events WHERE customer_id = ? AND business_id = ?').run(id, businessId);
+    db.prepare('DELETE FROM appointments WHERE customer_id = ? AND business_id = ?').run(id, businessId);
+    db.prepare('DELETE FROM customers WHERE id = ? AND business_id = ?').run(id, businessId);
+  });
+  remove(req.params.id);
+  res.status(204).end();
+});
