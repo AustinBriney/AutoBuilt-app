@@ -38,6 +38,7 @@ export const api = {
   updateBusiness: (data) => request('/business', { method: 'PATCH', body: JSON.stringify(data) }),
   getIntegrations: () => request('/business/integrations'),
   getCalcomWebhookInfo: () => request('/business/calcom-webhook-info'),
+  uploadLogo: (dataUrl) => request('/business/logo', { method: 'POST', body: JSON.stringify({ dataUrl }) }),
   linkServiceToCalcom: (serviceId, calcomEventTypeId) =>
     request('/business/calcom-webhook-info/link-service', { method: 'PATCH', body: JSON.stringify({ serviceId, calcomEventTypeId }) }),
 
