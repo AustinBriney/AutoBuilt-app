@@ -12,6 +12,18 @@ import { dashboardRouter } from './routes/dashboard.js';
 import { requireAuth } from './middleware/requireAuth.js';
 import { runAutomationTick } from './lib/automations.js';
 import './db/index.js'; // ensures schema is applied on boot
+import { seedIfEmpty } from './db/seed.js';
+
+// Render's build command and pre-deploy command both run on separate,
+// ephemeral compute with NO access to the persistent disk — only the
+// actual running instance (this process) has it mounted. So seeding has to
+// happen here, at boot, against the real (disk-backed) database that
+// './db/index.js' just opened above — not in a build/pre-deploy step,
+// where it would silently write to a throwaway filesystem every single
+// deploy. seedIfEmpty() only ever creates data on a genuinely empty
+// database, so this is safe to run on every boot, including against a real
+// client's live data.
+await seedIfEmpty();
 
 const app = express();
 app.use(cors());
