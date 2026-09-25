@@ -9,10 +9,13 @@ import { appointmentsRouter } from './routes/appointments.js';
 import { conversationsRouter } from './routes/conversations.js';
 import { publicRouter } from './routes/public.js';
 import { dashboardRouter } from './routes/dashboard.js';
+import { adminRouter } from './routes/admin.js';
 import { requireAuth } from './middleware/requireAuth.js';
+import { requireAdmin } from './middleware/requireAdmin.js';
 import { runAutomationTick } from './lib/automations.js';
-import './db/index.js'; // ensures schema is applied on boot
+import { PERSISTENT_DIR } from './db/index.js'; // ensures schema is applied on boot
 import { seedIfEmpty } from './db/seed.js';
+import path from 'node:path';
 
 // Render's build command and pre-deploy command both run on separate,
 // ephemeral compute with NO access to the persistent disk — only the
@@ -33,6 +36,11 @@ app.use(express.json({ verify: (req, res, buf) => { req.rawBody = buf; } }));
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 
+// Serves uploaded business logos straight off the same persistent disk the
+// SQLite file lives on (see server/src/db/index.js) — logo_url values look
+// like /uploads/logos/<businessId>.<ext>?v=<timestamp>.
+app.use('/uploads/logos', express.static(path.join(PERSISTENT_DIR, 'logos')));
+
 // Signup/login issue the token; everything else below requires one.
 // /api/public/:slug/* is the exception — that's the customer-facing side
 // (booking pages, SMS/call webhooks), which has no AutoBuilt login of its
@@ -47,6 +55,10 @@ app.use('/api/customers', requireAuth, customersRouter);
 app.use('/api/appointments', requireAuth, appointmentsRouter);
 app.use('/api/conversations', requireAuth, conversationsRouter);
 app.use('/api/dashboard', requireAuth, dashboardRouter);
+
+// Austin's own internal admin dashboard — its own shared-secret auth
+// scheme entirely separate from the business JWT flow above.
+app.use('/api/admin', requireAdmin, adminRouter);
 
 app.use((err, req, res, _next) => {
   console.error(err);
