@@ -1,6 +1,8 @@
+import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { api } from '../lib/api.js';
 import { useAsync } from '../lib/useAsync.js';
+import { useToast } from '../lib/toast.jsx';
 import { formatDayHeading, formatTime, formatRelative, formatMoney } from '../lib/format.js';
 import Avatar from '../components/Avatar.jsx';
 import { SkeletonList } from '../components/Skeleton.jsx';
@@ -18,10 +20,25 @@ const automationMeta = {
 export default function CustomerDetail() {
   const { id } = useParams();
   const nav = useNavigate();
+  const toast = useToast();
+  const [confirming, setConfirming] = useState(false);
+  const [busy, setBusy] = useState(false);
   const { status, data, error, refetch } = useAsync(() => api.getCustomer(id), [id]);
 
   if (status === 'loading') return <div className="screen container"><SkeletonList count={4} /></div>;
   if (status === 'error') return <div className="screen container"><ErrorState message={error} onRetry={refetch} /></div>;
+
+  const handleDelete = async () => {
+    setBusy(true);
+    try {
+      await api.deleteCustomer(id);
+      toast('Customer deleted.');
+      nav('/customers');
+    } catch (e) {
+      toast(e.message, 'error');
+      setBusy(false);
+    }
+  };
 
   return (
     <div className="screen container">
@@ -89,6 +106,20 @@ export default function CustomerDetail() {
           })}
         </div>
       )}
+
+      <div style={{ marginTop: 28 }}>
+        {confirming ? (
+          <div className="card" style={{ padding: 14, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 14 }}>Delete {data.name} and their whole history? This can't be undone.</span>
+            <button className="btn btn-ghost btn-sm danger-text" disabled={busy} onClick={handleDelete} style={{ marginLeft: 'auto' }}>
+              Yes, delete
+            </button>
+            <button className="btn btn-ghost btn-sm" disabled={busy} onClick={() => setConfirming(false)}>Cancel</button>
+          </div>
+        ) : (
+          <button className="btn btn-ghost btn-sm danger-text" onClick={() => setConfirming(true)}>Delete customer</button>
+        )}
+      </div>
     </div>
   );
 }
