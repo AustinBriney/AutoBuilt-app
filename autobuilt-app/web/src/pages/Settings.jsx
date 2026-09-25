@@ -12,7 +12,6 @@ import './Settings.css';
 
 export default function Settings() {
   const { status, data, error, refetch } = useAsync(() => api.getBusiness(), []);
-  const integrations = useAsync(() => api.getIntegrations(), []);
   const calcomInfo = useAsync(() => api.getCalcomWebhookInfo(), []);
   const toast = useToast();
   const { theme, setTheme } = useTheme();
@@ -34,6 +33,22 @@ export default function Settings() {
       toast(e.message, 'error');
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function uploadLogo(file) {
+    try {
+      const dataUrl = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(new Error('Could not read that file.'));
+        reader.readAsDataURL(file);
+      });
+      const updated = await api.uploadLogo(dataUrl);
+      setForm(updated);
+      toast('Logo updated.');
+    } catch (e) {
+      toast(e.message, 'error');
     }
   }
 
@@ -78,21 +93,51 @@ export default function Settings() {
       </div>
 
       <div className="settings-section">
+        <h2>Logo</h2>
+        <div className="card" style={{ padding: 16, display: 'flex', alignItems: 'center', gap: 16 }}>
+          {form.logo_url ? (
+            <img
+              src={form.logo_url}
+              alt="Business logo"
+              style={{ width: 56, height: 56, borderRadius: 'var(--radius-sm)', objectFit: 'cover', border: '1px solid var(--line-strong)' }}
+            />
+          ) : (
+            <div
+              style={{
+                width: 56, height: 56, borderRadius: 'var(--radius-sm)', border: '1px dashed var(--line-strong)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: 'var(--ink-faint)', textAlign: 'center',
+              }}
+            >
+              No logo
+            </div>
+          )}
+          <div>
+            <label className="btn btn-secondary btn-sm" style={{ cursor: 'pointer' }}>
+              {form.logo_url ? 'Change logo' : 'Upload logo'}
+              <input
+                type="file"
+                accept="image/*"
+                style={{ display: 'none' }}
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) uploadLogo(file);
+                  e.target.value = '';
+                }}
+              />
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <div className="settings-section">
         <h2>Your plan</h2>
         <div className="card">
-          {integrations.status === 'success' ? (
-            <div className="integration-row">
-              <div>
-                <div className="name">{integrations.data.stripe.plan}</div>
-                <div className="desc">Everything runs automatically in the background — bookings, texts, and follow-ups.</div>
-              </div>
-              <span className={`badge ${integrations.data.stripe.status === 'active' ? 'badge-success' : 'badge-neutral'}`}>
-                {integrations.data.stripe.status === 'active' ? 'Active' : integrations.data.stripe.status}
-              </span>
+          <div className="integration-row">
+            <div>
+              <div className="name">{form.plan ? form.plan : 'No plan assigned yet'}</div>
+              <div className="desc">Everything runs automatically in the background — bookings, texts, and follow-ups.</div>
             </div>
-          ) : (
-            <div className="integration-row"><div className="desc">Loading…</div></div>
-          )}
+          </div>
         </div>
       </div>
 
