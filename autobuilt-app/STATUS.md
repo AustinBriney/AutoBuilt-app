@@ -1,8 +1,78 @@
 # AutoBuilt — build status / where I left off
 
 _Last updated by Claude (Sonnet 5) session on 2026-09-25. Everything below is LIVE and verified end-to-end.
-This update: real fix for the persistent-data bug (see below), plus the start of the
-client-onboarding pipeline (admin-set plan, logo upload, admin dashboard, per-client website)._
+This update: admin-set plan field, logo upload, and an internal admin dashboard — see
+"Client-onboarding pipeline, part 1" below for the newest work. Previous update: real fix for the
+persistent-data bug (see below)._
+
+## Client-onboarding pipeline, part 1: admin-set plan, logo upload, admin dashboard (2026-09-25)
+
+**Admin-set plan field.** `businesses.plan` (nullable TEXT, additive migration in
+`server/src/db/index.js`). The client-facing `PATCH /api/business` whitelist does **not** include
+`plan` — a business owner cannot set their own plan; only the admin PATCH route (below) can. Clients
+see it read-only in Settings → "Your plan": shows the plan name, or "No plan assigned yet" when null.
+Verified live: PATCH'd the demo business's plan to "Pro" via the admin dashboard, confirmed
+`GET /api/business` (as the logged-in demo client) returned `"plan": "Pro"`, confirmed a direct
+`PATCH /api/business { "plan": "Free" }` as the client is silently dropped (whitelist rejects it —
+plan stays "Pro"), and visually confirmed the Settings page renders "Pro" with no input/editable
+control anywhere near it.
+
+**Logo upload.** `businesses.logo_url` (nullable TEXT, additive migration). New
+`POST /api/business/logo` (behind the normal client `requireAuth`), body `{ dataUrl }` — a base64
+data URI (`data:image/png;base64,...`). Validates mime type (png/jpeg/jpg/webp/gif → 400 otherwise),
+decodes and writes to `<PERSISTENT_DIR>/logos/<businessId>.<ext>` — the *same* persistent disk
+directory the SQLite file lives on (`PERSISTENT_DIR` is now exported from `server/src/db/index.js`
+so this route and the static mount both derive it from one place, never recomputing
+`AUTOBUILT_DB` parsing themselves), so it survives redeploys exactly like the DB does. Returns the
+updated business row with a cache-busted `logo_url` (`/uploads/logos/<id>.<ext>?v=<timestamp>`).
+Served via `express.static` mounted at `/uploads/logos` in `server/src/index.js`. Settings has a new
+"Logo" section: thumbnail (or a "No logo" placeholder), file input with `FileReader`-based
+preview/auto-upload, and a success/error toast.
+Verified: real end-to-end integration test against a local server instance (own SQLite file, own
+temp persistent dir) — wrote an actual small PNG through the endpoint, confirmed the file existed on
+disk at the expected path, confirmed `GET` served it back with the right content-type, confirmed
+`logo_url` was persisted on the business row. **Not yet exercised in production through the actual
+browser file picker** (i.e., a human clicking "Upload logo" and choosing a real file on
+autobuilt-app.onrender.com) — the malformed-request path was smoke-tested live (POSTing garbage
+`dataUrl` correctly returns a clean 400, not a 500), and the code path is identical to what the local
+integration test exercised, but a real click-through with a real image was not performed this
+session.
+
+**Admin dashboard.** Austin's own internal tool — not client-facing, and there was no existing
+admin-login system, so this uses a separate shared-secret scheme instead of a second real login:
+- `server/src/middleware/requireAdmin.js` checks the `x-admin-secret` header against
+  `process.env.ADMIN_SECRET` (defaults to `autobuilt-admin-2026` if unset — **set a real
+  `ADMIN_SECRET` env var on the `autobuilt-api` Render service if this needs to be locked down
+  beyond "not publicly linked"; it is currently the fallback default**).
+- `server/src/routes/admin.js` — `GET /api/admin/businesses` (all businesses, cross-tenant, bypasses
+  the normal per-request AsyncLocalStorage scoping on purpose, includes a computed
+  `calcomWebhookUrl` per business) and `PATCH /api/admin/businesses/:id` (whitelist: `plan` only).
+  Mounted in `server/src/index.js` as `app.use('/api/admin', requireAdmin, adminRouter)`, entirely
+  outside the client JWT `requireAuth` chain.
+- Frontend: `/admin/*` is a sibling route to the normal client app in `App.jsx` (not nested inside
+  `AuthProvider`/`Gate`), so it's reachable without a client login at all. `web/src/pages/Admin.jsx`
+  gates on a secret stored in `localStorage` (`autobuilt_admin_secret`) — enter once, stays until
+  cleared or a 401 comes back (which clears it and re-shows the entry form). Its own fetch wrapper
+  sends `x-admin-secret`, entirely separate from the client `api.js`'s Bearer-token flow. Shows one
+  card per business: logo thumbnail (or placeholder), name/owner, an editable plan field + Save,
+  the Cal.com webhook URL + secret with copy buttons, and a "Website" link when `booking_url` is set.
+
+  **Admin dashboard URL**: `https://autobuilt-app.onrender.com/#/admin`
+  **Admin secret**: `autobuilt-admin-2026` (the built-in fallback — see the env var note above)
+
+Verified live end-to-end, visually and via direct API calls: loaded `/#/admin`, entered the secret,
+saw the real "Fade District Barbershop" card with its Cal.com webhook URL/secret and an empty plan
+field; typed "Pro" and clicked Save; confirmed the card and (separately, via the client Settings
+page and a direct `GET /api/business`) the client side both now show "Pro". Confirmed the admin API
+correctly 401s with no/wrong `x-admin-secret` and 200s with the right one.
+
+**Deviation from spec**: none of substance. One thing worth flagging — while visually verifying the
+Settings page, it appeared stuck on loading skeletons after a stale service-worker was cleared; this
+turned out to be an artifact of the browser-automation tooling re-navigating to an identical hash URL
+(which doesn't remount a `HashRouter` SPA or refire its data fetch), not a bug in this session's
+code — a genuine full reload rendered the page correctly on the first try. Documented here in case a
+future session sees the same "looks stuck, but only in an already-open automated browser tab" pattern
+and wants to skip re-diagnosing it.
 
 ## Live URLs
 - App (frontend, Render static site): https://autobuilt-app.onrender.com
