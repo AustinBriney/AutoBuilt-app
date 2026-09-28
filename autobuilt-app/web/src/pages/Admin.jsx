@@ -226,6 +226,107 @@ function BusinessCard({ business, onSavePlan }) {
           </a>
         </div>
       )}
+
+      <TestTools slug={business.slug} />
+    </div>
+  );
+}
+
+// Simulates the outside world hitting this business: a booking on their
+// site, a text in, a missed call. These used to sit in the client's own
+// Settings page, which was backwards — a shop owner should never see a
+// "simulate a booking" button in their app. Here they're what they
+// actually are: a setup tool for proving the client's dashboard lights up
+// on the spot, before their real Cal.com/Twilio hookups are live.
+//
+// These call the same public, slug-scoped endpoints a real client site or
+// Twilio webhook would, so a successful test exercises the real path —
+// no admin auth needed on them, which is why they use a plain fetch.
+function TestTools({ slug }) {
+  const toast = useToast();
+  const [open, setOpen] = useState(false);
+  const [phone, setPhone] = useState('+12255550199');
+  const [name, setName] = useState('Test Customer');
+  const [busy, setBusy] = useState('');
+
+  async function run(kind, path, body) {
+    setBusy(kind);
+    try {
+      const res = await fetch(`/api/public/${slug}/${path}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        let message = `Request failed (${res.status})`;
+        try {
+          message = (await res.json()).error || message;
+        } catch {
+          // response wasn't JSON; keep the status-code message
+        }
+        throw new Error(message);
+      }
+      toast(`Simulated: ${kind}`);
+    } catch (e) {
+      toast(e.message, 'error');
+    } finally {
+      setBusy('');
+    }
+  }
+
+  if (!open) {
+    return (
+      <div className="admin-field-row">
+        <button type="button" className="btn btn-secondary btn-sm" onClick={() => setOpen(true)}>
+          Test tools
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="admin-field-row admin-test-tools">
+      <label>Test tools</label>
+      <div className="admin-test-inputs">
+        <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Test name" />
+        <input className="input" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Test phone" />
+      </div>
+      <div className="admin-test-buttons">
+        <button
+          type="button"
+          className="btn btn-secondary btn-sm"
+          disabled={!!busy}
+          onClick={() =>
+            run('website booking', 'book', {
+              customerName: name,
+              phone,
+              startAt: new Date(Date.now() + 30 * 60000).toISOString(),
+              durationMin: 30,
+            })
+          }
+        >
+          {busy === 'website booking' ? 'Booking…' : 'Booking'}
+        </button>
+        <button
+          type="button"
+          className="btn btn-secondary btn-sm"
+          disabled={!!busy}
+          onClick={() => run('missed call', 'missed-call', { phone, name })}
+        >
+          {busy === 'missed call' ? 'Sending…' : 'Missed call'}
+        </button>
+        <button
+          type="button"
+          className="btn btn-secondary btn-sm"
+          disabled={!!busy}
+          onClick={() => run('inbound text', 'inbound-sms', { phone, name, body: 'Hey, is this the right number to book?' })}
+        >
+          {busy === 'inbound text' ? 'Sending…' : 'Inbound text'}
+        </button>
+        <button type="button" className="btn btn-ghost btn-sm" onClick={() => setOpen(false)}>
+          Hide
+        </button>
+      </div>
     </div>
   );
 }

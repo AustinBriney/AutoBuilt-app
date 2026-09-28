@@ -57,9 +57,13 @@ export default function Onboarding({ onDone }) {
               <label>Your name</label>
               <input className="input" value={form.owner_name} onChange={set('owner_name')} placeholder="e.g. Jordan Reed" />
             </div>
+            {/* Optional on purpose: the app is often handed to an owner
+                during the pitch itself, before their texting number has
+                been set up. Nothing in the app depends on this being
+                filled in, so blocking setup on it would be pure friction. */}
             <div className="field">
-              <label>Business phone</label>
-              <input className="input" type="tel" value={form.phone} onChange={set('phone')} placeholder="(225) 555-0142" />
+              <label>Business phone <span className="opt">(optional)</span></label>
+              <input className="input" type="tel" value={form.phone} onChange={set('phone')} placeholder="Add later once your number is set up" />
             </div>
             <div className="field">
               <label>Booking link <span className="opt">(optional)</span></label>

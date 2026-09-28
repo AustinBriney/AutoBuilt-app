@@ -12,7 +12,6 @@ import './Settings.css';
 
 export default function Settings() {
   const { status, data, error, refetch } = useAsync(() => api.getBusiness(), []);
-  const calcomInfo = useAsync(() => api.getCalcomWebhookInfo(), []);
   const toast = useToast();
   const { theme, setTheme } = useTheme();
   const { logout } = useAuth();
@@ -87,8 +86,14 @@ export default function Settings() {
         <div className="card" style={{ padding: 16 }}>
           <EditableField label="Business name" value={form.name} onSave={(v) => saveField({ name: v })} />
           <EditableField label="Owner name" value={form.owner_name} onSave={(v) => saveField({ owner_name: v })} />
-          <EditableField label="Phone" value={form.phone} onSave={(v) => saveField({ phone: v })} />
-          <EditableField label="Customer booking link" value={form.booking_url} onSave={(v) => saveField({ booking_url: v })} last />
+          <EditableField
+            label="Phone"
+            optional
+            hint="Your business texting number. Leave blank until it's set up — nothing here depends on it."
+            value={form.phone}
+            onSave={(v) => saveField({ phone: v })}
+          />
+          <EditableField label="Customer booking link" optional value={form.booking_url} onSave={(v) => saveField({ booking_url: v })} last />
         </div>
       </div>
 
@@ -141,25 +146,11 @@ export default function Settings() {
         </div>
       </div>
 
-      <div className="settings-section">
-        <h2>Cal.com</h2>
-        <div className="card" style={{ padding: 16 }}>
-          {calcomInfo.status === 'success' ? (
-            <>
-              <p style={{ fontSize: 13, color: 'var(--ink-soft)', marginTop: 0 }}>
-                In Cal.com: Settings → Developer → Webhooks → New webhook. Paste these two values in, leave
-                "Booking created", "Booking cancelled", and "Booking rescheduled" checked.
-              </p>
-              <CopyField label="Webhook URL" value={calcomInfo.data.webhookUrl} />
-              <CopyField label="Secret" value={calcomInfo.data.secret} last />
-            </>
-          ) : (
-            <div className="desc">Loading…</div>
-          )}
-        </div>
-      </div>
-
-      <TestTools toast={toast} slug={form.slug} />
+      {/* No Cal.com section and no test tools here on purpose. Both are
+          setup plumbing that AutoBuilt wires up on the client's behalf —
+          a shop owner should never see a webhook URL or a "simulate a
+          booking" button in their own app. Both live in the admin
+          dashboard (/#/admin) instead, where they're actually used. */}
 
       <div className="settings-section">
         <button className="btn btn-secondary btn-block" onClick={logout}>Sign out</button>
@@ -168,108 +159,23 @@ export default function Settings() {
   );
 }
 
-function CopyField({ label, value, last }) {
-  const [copied, setCopied] = useState(false);
-  async function copy() {
-    try {
-      await navigator.clipboard.writeText(value);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    } catch {
-      // Clipboard API can be unavailable (e.g. non-HTTPS); the value is still selectable in the input.
-    }
-  }
-  return (
-    <div style={{ marginBottom: last ? 0 : 16 }}>
-      <label style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--ink-soft)', display: 'block', marginBottom: 6 }}>{label}</label>
-      <div style={{ display: 'flex', gap: 8 }}>
-        <input className="input" value={value || ''} readOnly onFocus={(e) => e.target.select()} style={{ flex: 1 }} />
-        <button type="button" className="btn btn-secondary" onClick={copy} style={{ whiteSpace: 'nowrap' }}>
-          {copied ? 'Copied' : 'Copy'}
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function EditableField({ label, value, onSave, last }) {
+function EditableField({ label, value, onSave, last, optional, hint }) {
   const [val, setVal] = useState(value || '');
   const [editing, setEditing] = useState(false);
 
   return (
     <div style={{ marginBottom: last ? 0 : 16 }}>
-      <label style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--ink-soft)', display: 'block', marginBottom: 6 }}>{label}</label>
+      <label style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--ink-soft)', display: 'block', marginBottom: 6 }}>
+        {label}
+        {optional && <span style={{ fontWeight: 500, color: 'var(--ink-faint)' }}> (optional)</span>}
+      </label>
       <input
         className="input"
         value={val}
         onChange={(e) => { setVal(e.target.value); setEditing(true); }}
         onBlur={() => { if (editing) { onSave(val); setEditing(false); } }}
       />
-    </div>
-  );
-}
-
-// A small panel that lets the owner (or us, testing) simulate the outside
-// world: a customer booking on the website, texting in, or calling and
-// hanging up. This is what stands in for real Cal.com/Twilio webhooks
-// until those are wired up, and it's exactly the tool needed to run the
-// 17-step mock-client test end to end.
-function TestTools({ toast, slug }) {
-  const [phone, setPhone] = useState('+12255550199');
-  const [name, setName] = useState('Austin Test');
-  const [busy, setBusy] = useState('');
-
-  async function run(kind, fn) {
-    setBusy(kind);
-    try {
-      await fn();
-      toast(`Simulated: ${kind}`);
-    } catch (e) {
-      toast(e.message, 'error');
-    } finally {
-      setBusy('');
-    }
-  }
-
-  return (
-    <div className="settings-section">
-      <h2>Test tools</h2>
-      <div className="card" style={{ padding: 16 }}>
-        <div className="field">
-          <label>Test phone number</label>
-          <input className="input" value={phone} onChange={(e) => setPhone(e.target.value)} />
-        </div>
-        <div className="field">
-          <label>Test name</label>
-          <input className="input" value={name} onChange={(e) => setName(e.target.value)} style={{ marginBottom: 4 }} />
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}>
-          <button
-            className="btn btn-secondary"
-            disabled={busy}
-            onClick={() =>
-              run('website booking', () =>
-                api.simulateBooking(slug, { customerName: name, phone, startAt: new Date(Date.now() + 30 * 60000).toISOString(), durationMin: 30 })
-              )
-            }
-          >
-            {busy === 'website booking' ? 'Booking…' : 'Simulate a website booking'}
-          </button>
-          <button className="btn btn-secondary" disabled={busy} onClick={() => run('missed call', () => api.simulateMissedCall(slug, { phone, name }))}>
-            {busy === 'missed call' ? 'Sending…' : 'Simulate a missed call'}
-          </button>
-          <button
-            className="btn btn-secondary"
-            disabled={busy}
-            onClick={() => run('inbound text', () => api.simulateInboundSms(slug, { phone, name, body: 'Hey, is this the right number to book?' }))}
-          >
-            {busy === 'inbound text' ? 'Sending…' : 'Simulate an inbound text'}
-          </button>
-        </div>
-        <p style={{ fontSize: 12, color: 'var(--ink-faint)', marginTop: 12 }}>
-          These stand in for Cal.com and Twilio until they're connected — use them to test the whole flow now.
-        </p>
-      </div>
+      {hint && <div style={{ fontSize: 11.5, color: 'var(--ink-faint)', marginTop: 6, lineHeight: 1.4 }}>{hint}</div>}
     </div>
   );
 }

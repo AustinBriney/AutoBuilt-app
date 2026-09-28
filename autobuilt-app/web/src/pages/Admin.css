@@ -33,3 +33,12 @@
 }
 
 .admin-website-link { color: var(--accent); font-weight: 600; font-size: 13.5px; }
+
+.admin-test-tools {
+  border-top: 1px solid var(--line);
+  padding-top: 14px;
+  margin-top: 4px;
+}
+.admin-test-inputs { display: flex; gap: 8px; margin-bottom: 8px; }
+.admin-test-inputs .input { flex: 1; min-width: 0; }
+.admin-test-buttons { display: flex; flex-wrap: wrap; gap: 8px; }
