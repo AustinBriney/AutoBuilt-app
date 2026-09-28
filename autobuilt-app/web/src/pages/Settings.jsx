@@ -154,6 +154,9 @@ export default function Settings() {
 
       <div className="settings-section">
         <button className="btn btn-secondary btn-block" onClick={logout}>Sign out</button>
+        <div style={{ textAlign: 'center', fontSize: 11, color: 'var(--ink-faint)', marginTop: 14 }}>
+          Build {typeof __BUILD_ID__ === 'string' ? __BUILD_ID__ : 'dev'}
+        </div>
       </div>
     </div>
   );
