@@ -4,11 +4,25 @@
   height: calc(var(--nav-height) + var(--safe-bottom));
   padding-bottom: var(--safe-bottom);
   display: flex;
-  background: color-mix(in srgb, var(--bg) 88%, transparent);
-  backdrop-filter: blur(20px) saturate(1.4);
-  -webkit-backdrop-filter: blur(20px) saturate(1.4);
+  /* Solid background FIRST, as the guaranteed floor. If `color-mix` or
+     `backdrop-filter` isn't supported (older iOS Safari in particular),
+     the translucent version below is simply dropped and the bar still
+     paints as a real bar. Previously the only background was the
+     color-mix one, so on a browser without it the nav rendered fully
+     transparent — the icons appeared to float loose on top of whatever
+     list rows sat behind them, which looked fine on pages whose bottom
+     was empty and broken on the ones with content there. */
+  background: var(--bg);
   border-top: 1px solid var(--line);
   z-index: 30;
+}
+
+@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .bottom-nav {
+    background: color-mix(in srgb, var(--bg) 88%, transparent);
+    backdrop-filter: blur(20px) saturate(1.4);
+    -webkit-backdrop-filter: blur(20px) saturate(1.4);
+  }
 }
 
 .nav-item {
