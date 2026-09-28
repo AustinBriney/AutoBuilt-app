@@ -37,32 +37,70 @@
   --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
 
+/* Dark theme: a warm charcoal, deliberately NOT olive. The earlier values
+   sat around hue 48° (yellow-green) at a very low lightness, which read as
+   a murky dark green on most screens and fought the brand's warm brass.
+   These sit at hue ~30° (warm brown) with the saturation pulled down and
+   every surface lifted a few steps, so it reads as a clean, intentional
+   dark rather than "the lights are off". Surfaces step up in clear
+   increments (bg → elevated → card → hover) so cards actually separate
+   from the page instead of all blending into one dark mass. */
 :root[data-theme='dark'] {
   color-scheme: dark;
-  --accent: #c19a52;
-  --accent-hover: #d4ac66;
-  --accent-soft: rgba(193, 154, 82, 0.16);
-  --accent-ink: #1a1712;
-  --danger: #d98984;
-  --danger-soft: rgba(217, 137, 132, 0.14);
-  --success: #8fae8f;
-  --success-soft: rgba(143, 174, 143, 0.14);
+  --accent: #cda45f;
+  --accent-hover: #ddb877;
+  --accent-soft: rgba(205, 164, 95, 0.15);
+  --accent-ink: #1f1d1a;
+  --danger: #e09792;
+  --danger-soft: rgba(224, 151, 146, 0.14);
+  --success: #9bb89c;
+  --success-soft: rgba(155, 184, 156, 0.14);
 
-  --bg: #161511;
-  --bg-elevated: #1c1b16;
-  --card: #201f19;
-  --card-hover: #27251e;
-  --ink: #f1ece0;
-  --ink-soft: #b3ad9c;
-  --ink-faint: #79766a;
-  --line: rgba(241, 236, 224, 0.08);
-  --line-strong: rgba(241, 236, 224, 0.15);
-  --shadow-card: 0 12px 30px -18px rgba(0, 0, 0, 0.6);
-  --shadow-pop: 0 20px 46px -16px rgba(0, 0, 0, 0.65);
+  --bg: #1f1d1a;
+  --bg-elevated: #272420;
+  --card: #2a2723;
+  --card-hover: #322e29;
+  --ink: #f4f1eb;
+  --ink-soft: #b8b2a8;
+  --ink-faint: #8a847b;
+  --line: rgba(244, 241, 235, 0.09);
+  --line-strong: rgba(244, 241, 235, 0.17);
+  --shadow-card: 0 12px 30px -20px rgba(0, 0, 0, 0.55);
+  --shadow-pop: 0 20px 46px -18px rgba(0, 0, 0, 0.6);
 }
 
 * { box-sizing: border-box; }
-html, body, #root { height: 100%; }
+html, body { height: 100%; }
+
+/* App shell. The bottom nav used to be `position: fixed`, which on a phone
+   anchors to the viewport — and on a page too short to scroll (Dashboard,
+   Inbox, Schedule, Customers with only a row or two) the viewport a mobile
+   browser reports doesn't match the area you can actually see, so the bar
+   drifted out of place. Only Settings, long enough to scroll, looked right.
+   Instead of guessing at viewport quirks, the shell is now a fixed-height
+   flex column: the page scrolls INSIDE it and the nav is an ordinary flex
+   child at the end. The nav is at the bottom because it is literally the
+   last row of a full-height box, which no amount of browser-chrome
+   behavior can move. `dvh` keeps that box matched to the visible area as
+   the address bar shows and hides; since the shell itself never scrolls,
+   that resize can't jolt the page. */
+#root {
+  display: flex;
+  flex-direction: column;
+  height: 100vh; /* fallback for browsers without dvh */
+  height: 100dvh;
+  overflow: hidden;
+}
+
+/* Every top-level screen (app pages, Login, Onboarding, Admin) is the
+   scrolling region of the shell. min-height:0 is what actually lets a flex
+   child shrink below its content and scroll instead of stretching the shell. */
+.screen, .login, .onboard, .admin-screen {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
 
 body {
   margin: 0;
@@ -98,15 +136,18 @@ button { font-family: inherit; }
 }
 
 .screen {
-  min-height: 100%;
   padding-top: calc(env(safe-area-inset-top, 0px) + 20px);
-  padding-bottom: calc(var(--nav-height) + var(--safe-bottom) + 32px);
-  animation: screen-in 0.32s var(--ease);
+  /* The nav is a sibling row now, not an overlay, so this only needs a
+     little breathing room at the end of the content — not the nav's height. */
+  padding-bottom: 32px;
+  /* Fade only — no translate. A transform here would grow the scrollable
+     area by its own offset, leaving short pages a few pixels scrollable. */
+  animation: screen-in 0.28s var(--ease);
 }
 
 @keyframes screen-in {
-  from { opacity: 0; transform: translateY(6px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 .eyebrow {
