@@ -1,6 +1,7 @@
 .bottom-nav {
-  position: fixed;
-  left: 0; right: 0; bottom: 0;
+  /* Not fixed — the last row of the #root flex shell (see global.css).
+     flex-shrink:0 keeps it at full height when the page above it is long. */
+  flex: 0 0 auto;
   height: calc(var(--nav-height) + var(--safe-bottom));
   padding-bottom: var(--safe-bottom);
   display: flex;
