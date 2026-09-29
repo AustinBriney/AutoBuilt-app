@@ -63,7 +63,7 @@
 .fab {
   position: fixed;
   right: 20px;
-  bottom: calc(var(--nav-height) + var(--safe-bottom) + 18px);
+  bottom: calc(var(--nav-height) + var(--nav-pad) + 18px);
   width: 56px; height: 56px;
   border-radius: 50%;
   background: var(--accent);

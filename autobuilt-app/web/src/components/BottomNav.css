@@ -2,8 +2,8 @@
   /* Not fixed — the last row of the #root flex shell (see global.css).
      flex-shrink:0 keeps it at full height when the page above it is long. */
   flex: 0 0 auto;
-  height: calc(var(--nav-height) + var(--safe-bottom));
-  padding-bottom: var(--safe-bottom);
+  height: calc(var(--nav-height) + var(--nav-pad));
+  padding-bottom: var(--nav-pad);
   display: flex;
   /* Solid background FIRST, as the guaranteed floor. If `color-mix` or
      `backdrop-filter` isn't supported (older iOS Safari in particular),
@@ -35,7 +35,7 @@
   gap: 3px;
   color: var(--ink-faint);
   transition: color 0.2s var(--ease);
-  min-height: 48px;
+  min-height: 44px;
 }
 
 .nav-icon-wrap {

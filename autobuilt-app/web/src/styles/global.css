@@ -33,8 +33,10 @@
   --shadow-pop: 0 20px 44px -16px rgba(35, 33, 30, 0.32);
 
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
-  --nav-height: 64px;
+  --nav-height: 52px;
   --safe-bottom: env(safe-area-inset-bottom, 0px);
+  /* Nav only pads for ~40% of the home-indicator zone so it sits low, like a native tab bar. */
+  --nav-pad: calc(env(safe-area-inset-bottom, 0px) * 0.4);
 }
 
 /* Dark theme: a warm charcoal, deliberately NOT olive. The earlier values
