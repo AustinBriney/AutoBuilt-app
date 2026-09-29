@@ -32,14 +32,34 @@ const app = express();
 app.use(cors());
 // Keep the raw bytes around alongside the parsed body — Cal.com's webhook
 // signature is an HMAC over the exact raw JSON, not the reserialized object.
-app.use(express.json({ verify: (req, res, buf) => { req.rawBody = buf; } }));
+//
+// The 6mb limit is for logo uploads, which arrive as a base64 data URI in
+// the JSON body. Express defaults to 100kb, which silently rejected any
+// real logo or phone photo before it ever reached the route. The web app
+// now shrinks images before sending, so this is only a safety net for an
+// unusually large file or a request that didn't come from the app.
+app.use(express.json({ limit: '6mb', verify: (req, res, buf) => { req.rawBody = buf; } }));
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 
 // Serves uploaded business logos straight off the same persistent disk the
-// SQLite file lives on (see server/src/db/index.js) — logo_url values look
-// like /uploads/logos/<businessId>.<ext>?v=<timestamp>.
-app.use('/uploads/logos', express.static(path.join(PERSISTENT_DIR, 'logos')));
+// SQLite file lives on (see server/src/db/index.js).
+//
+// Mounted TWICE, on purpose. The web app is a Render static site on a
+// different domain than this API, and it reaches the API through a single
+// rewrite rule: /api/* -> autobuilt-api.onrender.com/api/*. Nothing else is
+// rewritten. So a logo_url of /uploads/logos/x.png resolves against the
+// STATIC site, which has no such file, and the client's logo silently 404s
+// even though the file is sitting right here.
+//
+// Putting the same directory under /api/uploads/logos means logo_url can be
+// a path that the already-working rewrite carries, with no extra Render
+// configuration to set up or forget. /uploads/logos stays mounted so that
+// URLs written by earlier versions (and direct API-domain links) keep
+// working; db/index.js rewrites those rows on boot.
+const logosStatic = express.static(path.join(PERSISTENT_DIR, 'logos'));
+app.use('/api/uploads/logos', logosStatic);
+app.use('/uploads/logos', logosStatic);
 
 // Signup/login issue the token; everything else below requires one.
 // /api/public/:slug/* is the exception — that's the customer-facing side
@@ -62,6 +82,12 @@ app.use('/api/admin', requireAdmin, adminRouter);
 
 app.use((err, req, res, _next) => {
   console.error(err);
+  // An oversized body is the caller's problem, not a server fault — say so,
+  // otherwise it surfaces as a bewildering "Something went wrong" (which is
+  // exactly how the old 100kb logo-upload limit presented itself).
+  if (err?.type === 'entity.too.large' || err?.status === 413) {
+    return res.status(413).json({ error: 'That file is too large. Please choose a smaller image.' });
+  }
   res.status(500).json({ error: 'Something went wrong.' });
 });
 

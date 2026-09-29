@@ -129,8 +129,18 @@ CREATE TABLE IF NOT EXISTS automation_events (
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+-- IMPORTANT: nothing in this file may reference a column that was added by a
+-- migration in db/index.js rather than by the CREATE TABLE above it.
+--
+-- This whole file runs (as one exec) BEFORE the migrations do, and on a
+-- database that already exists every CREATE TABLE IF NOT EXISTS is a no-op —
+-- so a later-added column genuinely isn't there yet at this point. A single
+-- statement referencing one aborts the entire exec, which means the
+-- migrations never run and the server dies on boot against real client data.
+-- The index on appointments.external_ref used to live here and did exactly
+-- that; it now lives in db/index.js, after the migrations. Put any future
+-- index on a migration-added column there too.
 CREATE INDEX IF NOT EXISTS idx_appts_business ON appointments(business_id, start_at);
-CREATE UNIQUE INDEX IF NOT EXISTS idx_appts_external_ref ON appointments(business_id, external_ref) WHERE external_ref IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_customers_business ON customers(business_id);
 CREATE INDEX IF NOT EXISTS idx_messages_conv ON messages(conversation_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_autoevents_due ON automation_events(status, scheduled_for);

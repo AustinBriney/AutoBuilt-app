@@ -28,6 +28,7 @@ async function adminRequest(path, secret, options = {}) {
     }
     throw new Error(message);
   }
+  if (res.status === 204) return null;
   return res.json();
 }
 
@@ -146,17 +147,53 @@ function AdminDashboard({ secret, onUnauthorized }) {
       )}
 
       {status === 'success' &&
-        businesses.map((b) => <BusinessCard key={b.id} business={b} onSavePlan={(plan) => savePlan(b.id, plan)} />)}
+        businesses.map((b) => (
+          <BusinessCard
+            key={b.id}
+            business={b}
+            onSavePlan={(plan) => savePlan(b.id, plan)}
+            onDeleted={() => setBusinesses((list) => list.filter((x) => x.id !== b.id))}
+            secret={secret}
+            onUnauthorized={onUnauthorized}
+          />
+        ))}
 
       {status === 'success' && businesses.length === 0 && <p style={{ color: 'var(--ink-soft)' }}>No businesses yet.</p>}
     </div>
   );
 }
 
-function BusinessCard({ business, onSavePlan }) {
+function BusinessCard({ business, onSavePlan, onDeleted, secret, onUnauthorized }) {
+  const toast = useToast();
   const [plan, setPlan] = useState(business.plan || '');
   const [saving, setSaving] = useState(false);
   const [copied, setCopied] = useState('');
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  async function remove() {
+    setDeleting(true);
+    try {
+      await adminRequest(`/businesses/${business.id}`, secret, {
+        method: 'DELETE',
+        body: JSON.stringify({ confirmName: business.name }),
+      });
+      toast(`Deleted ${business.name}.`);
+      onDeleted();
+    } catch (e) {
+      if (e.unauthorized) {
+        try {
+          localStorage.removeItem(SECRET_KEY);
+        } catch {
+          // best-effort only
+        }
+        onUnauthorized();
+        return;
+      }
+      toast(e.message, 'error');
+      setDeleting(false);
+    }
+  }
 
   async function save() {
     setSaving(true);
@@ -202,13 +239,15 @@ function BusinessCard({ business, onSavePlan }) {
       </div>
 
       <div className="admin-field-row">
-        <label>Cal.com webhook</label>
+        <label>Cal.com connection</label>
+        <div className="admin-hint">1 · Paste into Cal.com's <strong>Subscriber URL</strong> box</div>
         <div className="admin-mono-row">
           <span className="admin-mono">{business.calcomWebhookUrl}</span>
           <button type="button" className="btn btn-secondary btn-sm" onClick={() => copy('url', business.calcomWebhookUrl)}>
             {copied === 'url' ? 'Copied' : 'Copy'}
           </button>
         </div>
+        <div className="admin-hint">2 · Paste into Cal.com's <strong>Secret</strong> box</div>
         <div className="admin-mono-row">
           <span className="admin-mono">{business.calcom_webhook_secret || '(none set)'}</span>
           {business.calcom_webhook_secret && (
@@ -228,6 +267,34 @@ function BusinessCard({ business, onSavePlan }) {
       )}
 
       <TestTools slug={business.slug} />
+
+      <div className="admin-field-row admin-danger-row">
+        {confirmingDelete ? (
+          <>
+            <div className="admin-danger-warning">
+              Permanently delete <strong>{business.name}</strong> and everything in it — customers,
+              appointments, messages, and their login. This can't be undone.
+            </div>
+            <div className="admin-test-buttons">
+              <button type="button" className="btn btn-danger btn-sm" disabled={deleting} onClick={remove}>
+                {deleting ? 'Deleting…' : 'Yes, delete permanently'}
+              </button>
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm"
+                disabled={deleting}
+                onClick={() => setConfirmingDelete(false)}
+              >
+                Cancel
+              </button>
+            </div>
+          </>
+        ) : (
+          <button type="button" className="btn btn-ghost btn-sm" onClick={() => setConfirmingDelete(true)}>
+            Delete business
+          </button>
+        )}
+      </div>
     </div>
   );
 }

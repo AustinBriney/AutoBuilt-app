@@ -38,6 +38,28 @@ publicRouter.get('/:slug/services', (req, res) => {
   res.json(services);
 });
 
+// Everything a client's own website needs to describe the business, read
+// live from the app so nothing on the site is typed in by hand: change the
+// hours, phone or address in the AutoBuilt app and the site reflects it on
+// the next page load. Public by design (it is what would be printed on the
+// site anyway); it never returns owner email, plan, secrets or customers.
+publicRouter.get('/:slug/profile', (req, res) => {
+  const business = resolveBusiness(req, res);
+  if (!business) return;
+  const hours = db
+    .prepare('SELECT weekday, start_time, end_time FROM availability_rules WHERE business_id = ? ORDER BY weekday, start_time')
+    .all(business.id)
+    .map((r) => ({ weekday: r.weekday, start: r.start_time, end: r.end_time }));
+  res.json({
+    name: business.name,
+    phone: business.phone || null,
+    address: business.address || null,
+    bookingUrl: business.booking_url || null,
+    timezone: business.timezone,
+    hours,
+  });
+});
+
 publicRouter.post('/:slug/book', (req, res) => {
   const business = resolveBusiness(req, res);
   if (!business) return;

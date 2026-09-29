@@ -70,7 +70,19 @@
 }
 
 * { box-sizing: border-box; }
-html, body { height: 100%; }
+/* Lock the document itself. The app scrolls inside #root's inner region, so
+   the page behind it must have nothing to scroll. Otherwise, when a screen
+   is dragged past its top or bottom edge (or is too short to scroll at
+   all), iOS hands the swipe to the document and the whole screen, nav bar
+   included, slides with your finger. position:fixed + overflow:hidden
+   removes the document's ability to move, on old iOS versions that ignore
+   overscroll-behavior too. */
+html, body {
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+body { position: fixed; inset: 0; width: 100%; }
 
 /* App shell. The bottom nav used to be `position: fixed`, which on a phone
    anchors to the viewport — and on a page too short to scroll (Dashboard,
@@ -99,7 +111,10 @@ html, body { height: 100%; }
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
+  overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
+  /* Keep a drag at the edge of a list from chaining out to anything else. */
+  overscroll-behavior-y: contain;
 }
 
 body {

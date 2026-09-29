@@ -21,12 +21,16 @@ const schema = fs.readFileSync(path.join(__dirname, 'schema.sql'), 'utf8');
 db.exec(schema);
 
 // `CREATE TABLE IF NOT EXISTS` in schema.sql only helps brand-new tables —
-// on a real (persistent) database that already exists from an earlier
-// version, adding a column to an existing table needs an explicit ALTER.
-// Right now Render's disk is ephemeral so every deploy gets a fresh file
-// and this is a no-op, but it's here so a future persistent-disk/Postgres
-// upgrade doesn't silently break on old rows. Safe to run every boot —
-// "duplicate column" errors from an already-migrated DB are swallowed.
+// on the real (persistent) database, which now survives every deploy,
+// adding a column to an existing table needs an explicit ALTER. This is no
+// longer hypothetical: the disk means the production database is one
+// long-lived file that will accumulate every migration below, forever.
+// Safe to run every boot — "duplicate column" errors from an
+// already-migrated DB are swallowed.
+//
+// Anything that DEPENDS on a column added here (an index, a view, a
+// constraint) must be created after this loop, not in schema.sql — see the
+// note at the bottom of that file for what goes wrong otherwise.
 const migrations = [
   `ALTER TABLE businesses ADD COLUMN calcom_webhook_secret TEXT`,
   `ALTER TABLE services ADD COLUMN calcom_event_type_id TEXT`,
@@ -44,5 +48,16 @@ for (const sql of migrations) {
 db.exec(
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_appts_external_ref ON appointments(business_id, external_ref) WHERE external_ref IS NOT NULL`
 );
+
+// Logo URLs used to be written as /uploads/logos/... which 404s on the web
+// app's own domain (only /api/* is rewritten through to this API). They are
+// now served under /api/uploads/logos as well, so repoint any row still
+// holding the old form. Idempotent: the LIKE matches nothing on a database
+// that has already been through this.
+db.prepare(
+  `UPDATE businesses
+      SET logo_url = '/api' || logo_url
+    WHERE logo_url LIKE '/uploads/logos/%'`
+).run();
 
 export default db;

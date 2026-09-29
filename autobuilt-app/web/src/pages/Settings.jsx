@@ -37,12 +37,7 @@ export default function Settings() {
 
   async function uploadLogo(file) {
     try {
-      const dataUrl = await new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result);
-        reader.onerror = () => reject(new Error('Could not read that file.'));
-        reader.readAsDataURL(file);
-      });
+      const dataUrl = await shrinkImageToDataUrl(file);
       const updated = await api.uploadLogo(dataUrl);
       setForm(updated);
       toast('Logo updated.');
@@ -160,6 +155,52 @@ export default function Settings() {
       </div>
     </div>
   );
+}
+
+// Logos are shown at 56px in Settings and 44px in the admin dashboard, so
+// there is no reason to ship the original file. A photo straight off a
+// phone is several megabytes, and base64 adds about a third on top of that
+// — which used to blow past the API's request-size limit and fail with a
+// useless "Something went wrong". Re-drawing it at a sane size first keeps
+// the upload small and fast no matter what the owner picks, and means the
+// persistent disk fills with kilobytes instead of megabytes per client.
+const LOGO_MAX_EDGE = 512;
+
+async function shrinkImageToDataUrl(file) {
+  if (!file.type.startsWith('image/')) throw new Error('Please choose an image file.');
+
+  const originalUrl = URL.createObjectURL(file);
+  try {
+    const img = await new Promise((resolve, reject) => {
+      const el = new Image();
+      el.onload = () => resolve(el);
+      el.onerror = () => reject(new Error("That image couldn't be read. Try a PNG or JPEG."));
+      el.src = originalUrl;
+    });
+
+    const scale = Math.min(1, LOGO_MAX_EDGE / Math.max(img.naturalWidth, img.naturalHeight));
+    const width = Math.max(1, Math.round(img.naturalWidth * scale));
+    const height = Math.max(1, Math.round(img.naturalHeight * scale));
+
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(img, 0, 0, width, height);
+
+    // PNG keeps transparency, which most logos rely on. If that comes out
+    // heavy (photos re-encoded as PNG do), fall back to JPEG on a white
+    // background so the upload stays small.
+    const png = canvas.toDataURL('image/png');
+    if (png.length <= 400_000) return png;
+
+    ctx.globalCompositeOperation = 'destination-over';
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, width, height);
+    return canvas.toDataURL('image/jpeg', 0.85);
+  } finally {
+    URL.revokeObjectURL(originalUrl);
+  }
 }
 
 function EditableField({ label, value, onSave, last, optional, hint }) {

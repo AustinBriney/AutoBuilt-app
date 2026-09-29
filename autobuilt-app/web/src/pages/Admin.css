@@ -42,3 +42,18 @@
 .admin-test-inputs { display: flex; gap: 8px; margin-bottom: 8px; }
 .admin-test-inputs .input { flex: 1; min-width: 0; }
 .admin-test-buttons { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.admin-danger-row {
+  border-top: 1px solid var(--line);
+  padding-top: 14px;
+  margin-top: 14px;
+}
+.admin-danger-warning {
+  font-size: 12.5px;
+  color: var(--danger);
+  line-height: 1.45;
+  margin-bottom: 10px;
+}
+
+.admin-hint { font-size: 12px; color: var(--ink-faint); margin: 2px 0 6px; }
+.admin-hint strong { color: var(--ink-soft); font-weight: 600; }

@@ -70,7 +70,9 @@ businessRouter.post('/logo', (req, res) => {
   const filePath = path.join(LOGOS_DIR, `${businessId}.${ext}`);
   fs.writeFileSync(filePath, buffer);
 
-  const logoUrl = `/uploads/logos/${businessId}.${ext}?v=${Date.now()}`;
+  // /api-prefixed so the web app's single /api/* rewrite delivers it — see
+  // the double static mount in index.js for why this matters.
+  const logoUrl = `/api/uploads/logos/${businessId}.${ext}?v=${Date.now()}`;
   db.prepare('UPDATE businesses SET logo_url = ? WHERE id = ?').run(logoUrl, businessId);
   res.json(db.prepare('SELECT * FROM businesses WHERE id = ?').get(businessId));
 });

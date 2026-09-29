@@ -40,9 +40,16 @@
 .thread-title { font-size: 16px; font-weight: 600; }
 .thread-sub { font-size: 12px; color: var(--ink-faint); }
 
-.thread-body { padding: 16px 20px 12px; display: flex; flex-direction: column; gap: 10px; }
+.thread-body { padding: 16px 20px 12px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
 .msg-bubble {
   max-width: 78%;
+  min-width: 0;
+  /* Long words, links and phone numbers used to keep the bubble as wide as
+     the text, pushing it past the right edge of the screen. Break them
+     anywhere, and keep line breaks the sender typed. */
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  white-space: pre-wrap;
   padding: 11px 14px;
   border-radius: 18px;
   font-size: 14.5px;
