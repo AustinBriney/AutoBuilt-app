@@ -4,6 +4,21 @@ import { registerSW } from 'virtual:pwa-register';
 import './styles/global.css';
 import App from './App.jsx';
 
+// Installed-app mode on iPhone can report a layout viewport shorter than the
+// real screen, which leaves a blank band under the bottom nav. In that mode
+// only, size the shell to the true screen height instead of trusting it.
+const isStandalone = window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches;
+if (isStandalone) {
+  const fit = () => {
+    const h = Math.max(window.innerHeight, window.screen.height || 0);
+    document.documentElement.style.setProperty('--app-h', h + 'px');
+  };
+  document.documentElement.classList.add('standalone');
+  fit();
+  window.addEventListener('resize', fit);
+  window.addEventListener('orientationchange', () => setTimeout(fit, 250));
+}
+
 // Without this, a browser (or a PWA someone added to their home screen)
 // that already had an old service worker installed can keep serving a
 // stale, broken JS bundle after a deploy indefinitely — the exact "Something
