@@ -361,9 +361,9 @@ html.standalone #root {
 }
 
 /* Bottom nav icons: a touch larger than the default 22px. */
-.bottom-nav .nav-icon-wrap svg { width: 28px; height: 28px; }
+.bottom-nav .nav-icon-wrap svg { width: 24px; height: 24px; }
 /* Icons + labels centered between the nav's top line and the bottom of the screen:
    no bottom padding, so the flex centering covers the whole bar. */
-#root .bottom-nav { padding-bottom: 0; height: calc(var(--nav-height) + var(--nav-pad)); }
+#root .bottom-nav { padding-bottom: 7px; height: calc(var(--nav-height) + var(--nav-pad)); }
 #root .bottom-nav .nav-item { min-height: 0; justify-content: center; }
 .bottom-nav .nav-item { gap: 4px; }
