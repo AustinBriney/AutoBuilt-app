@@ -19,6 +19,12 @@ import Admin from './pages/Admin.jsx';
 function Shell() {
   const { business, refreshBusiness } = useAuth();
   const [unread, setUnread] = useState(0);
+  // Re-render every 30s so relative times ("5m ago") keep counting up on their own.
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setTick((n) => n + 1), 30000);
+    return () => clearInterval(id);
+  }, []);
   const location = useLocation();
   const hideNav = /^\/inbox\/[^/]+$/.test(location.pathname);
 
