@@ -36,7 +36,7 @@
   backdrop-filter: blur(16px);
   z-index: 5;
 }
-.thread-back { color: var(--ink-soft); display: flex; padding: 6px; margin-left: -6px; }
+.thread-back { color: var(--ink-soft); display: flex; padding: 6px; margin-left: -6px; background: none; border: none; }
 .thread-title { font-size: 16px; font-weight: 600; }
 .thread-sub { font-size: 12px; color: var(--ink-faint); }
 

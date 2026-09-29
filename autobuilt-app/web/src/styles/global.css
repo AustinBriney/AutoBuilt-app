@@ -99,8 +99,13 @@ body { position: fixed; inset: 0; width: 100%; }
 #root {
   display: flex;
   flex-direction: column;
-  height: 100vh; /* fallback for browsers without dvh */
-  height: 100dvh;
+  /* Pinned to the real screen edges rather than sized with a height unit.
+     vh/dvh disagree with what an iPhone actually shows (address bar,
+     home-indicator area, installed-app mode), which left the nav bar
+     hovering above the bottom. A fixed box with all four edges at 0 is
+     always exactly the visible screen. */
+  position: fixed;
+  inset: 0;
   overflow: hidden;
 }
 
@@ -110,6 +115,15 @@ body { position: fixed; inset: 0; width: 100%; }
 .screen, .login, .onboard, .admin-screen {
   flex: 1 1 auto;
   min-height: 0;
+  /* Full width of the phone, always. These are children of a column flex
+     box and most also carry .container (margin: 0 auto). Auto side margins
+     on a flex child switch off its stretch, so without this each screen
+     shrank to fit its own content: Schedule came out narrow and off-center,
+     Inbox came out wider than the phone and got clipped, and long message
+     text pushed past the right edge. max-width (from .container) still
+     caps and centers it on wide screens. */
+  width: 100%;
+  box-sizing: border-box;
   overflow-y: auto;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
