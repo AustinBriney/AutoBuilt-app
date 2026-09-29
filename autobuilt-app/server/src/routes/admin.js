@@ -30,7 +30,9 @@ adminRouter.get('/businesses', (req, res) => {
 });
 
 adminRouter.patch('/businesses/:id', (req, res) => {
-  const allowed = ['plan'];
+  // Austin sets up and manages everything for a client from here, so the client
+  // never has to: plan, and the business details their website/app read live.
+  const allowed = ['plan', 'booking_url', 'name', 'owner_name', 'phone', 'address'];
   const updates = Object.entries(req.body || {}).filter(([k]) => allowed.includes(k));
   if (updates.length === 0) return res.status(400).json({ error: 'No valid fields to update.' });
 

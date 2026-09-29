@@ -111,14 +111,14 @@ function AdminDashboard({ secret, onUnauthorized }) {
     load();
   }, [load]);
 
-  async function savePlan(id, plan) {
+  async function saveFields(id, fields, okMsg = 'Saved.') {
     try {
       const updated = await adminRequest(`/businesses/${id}`, secret, {
         method: 'PATCH',
-        body: JSON.stringify({ plan }),
+        body: JSON.stringify(fields),
       });
       setBusinesses((list) => list.map((b) => (b.id === id ? { ...b, ...updated } : b)));
-      toast('Plan saved.');
+      toast(okMsg);
     } catch (e) {
       if (e.unauthorized) {
         try {
@@ -151,7 +151,8 @@ function AdminDashboard({ secret, onUnauthorized }) {
           <BusinessCard
             key={b.id}
             business={b}
-            onSavePlan={(plan) => savePlan(b.id, plan)}
+            onSavePlan={(plan) => saveFields(b.id, { plan }, 'Plan saved.')}
+            onSaveFields={(fields, msg) => saveFields(b.id, fields, msg)}
             onDeleted={() => setBusinesses((list) => list.filter((x) => x.id !== b.id))}
             secret={secret}
             onUnauthorized={onUnauthorized}
@@ -163,9 +164,11 @@ function AdminDashboard({ secret, onUnauthorized }) {
   );
 }
 
-function BusinessCard({ business, onSavePlan, onDeleted, secret, onUnauthorized }) {
+function BusinessCard({ business, onSavePlan, onSaveFields, onDeleted, secret, onUnauthorized }) {
   const toast = useToast();
   const [plan, setPlan] = useState(business.plan || '');
+  const [bookingUrl, setBookingUrl] = useState(business.booking_url || '');
+  const [savingUrl, setSavingUrl] = useState(false);
   const [saving, setSaving] = useState(false);
   const [copied, setCopied] = useState('');
   const [confirmingDelete, setConfirmingDelete] = useState(false);
@@ -258,13 +261,32 @@ function BusinessCard({ business, onSavePlan, onDeleted, secret, onUnauthorized 
         </div>
       </div>
 
-      {business.booking_url && (
-        <div className="admin-field-row">
-          <a href={business.booking_url} target="_blank" rel="noreferrer" className="admin-website-link">
-            Website
-          </a>
+      <div className="admin-field-row">
+        <label>Customer booking link (Cal.com)</label>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <input className="input" value={bookingUrl} onChange={(e) => setBookingUrl(e.target.value)} placeholder="https://cal.com/their-name/their-event" />
+          <button
+            className="btn btn-primary"
+            disabled={savingUrl}
+            onClick={async () => {
+              setSavingUrl(true);
+              try {
+                await onSaveFields({ booking_url: bookingUrl.trim() || null }, 'Booking link saved.');
+              } finally {
+                setSavingUrl(false);
+              }
+            }}
+          >
+            {savingUrl ? 'Saving…' : 'Save'}
+          </button>
         </div>
-      )}
+        <div className="admin-hint">Their website's Book button and their app both use this link automatically.</div>
+        {business.booking_url && (
+          <a href={business.booking_url} target="_blank" rel="noreferrer" className="admin-website-link">
+            Open booking page
+          </a>
+        )}
+      </div>
 
       <TestTools slug={business.slug} />
 

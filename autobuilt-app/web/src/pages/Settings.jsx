@@ -88,7 +88,12 @@ export default function Settings() {
             value={form.phone}
             onSave={(v) => saveField({ phone: v })}
           />
-          <EditableField label="Customer booking link" optional value={form.booking_url} onSave={(v) => saveField({ booking_url: v })} last />
+          <EditableField label="Customer booking link" optional hint="Set up for you. Customers book here from your website." value={form.booking_url} onSave={(v) => saveField({ booking_url: v })} last />
+          {form.booking_url && (
+            <a href={form.booking_url} target="_blank" rel="noreferrer" className="btn btn-secondary" style={{ display: 'block', textAlign: 'center', marginTop: 12 }}>
+              Open my booking page
+            </a>
+          )}
         </div>
       </div>
 
