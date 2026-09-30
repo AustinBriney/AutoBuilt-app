@@ -5,11 +5,20 @@ import { verifyCalcomSignature, handleCalcomWebhook } from '../integrations/calc
 import { findOrCreateCustomer } from '../lib/customers.js';
 import { recordInboundMessage } from '../lib/messaging.js';
 import { scheduleMissedCallText } from '../lib/automations.js';
+import {
+  availabilityForRange,
+  bookingSettings,
+  slotStatus,
+  todayInZone,
+  SLOT_STATUS_MESSAGES,
+} from '../lib/slots.js';
 
 // Everything in this router stands in for a real external webhook or a
 // client's own public booking page:
 //   /:slug/services       <- the client's public site listing what's bookable
-//   /:slug/book           <- MOCK "booking created" (used by mock-site + Test Tools)
+//   /:slug/profile        <- name, phone, address, hours for the site's chrome
+//   /:slug/availability   <- the open times the site's calendar draws
+//   /:slug/book           <- a customer booking on the client's own site
 //   /:slug/calcom-webhook <- REAL Cal.com webhook (BOOKING_CREATED/CANCELLED/RESCHEDULED)
 //   /:slug/inbound-sms    <- Twilio "message received" webhook
 //   /:slug/missed-call    <- Twilio "voice call, no answer" webhook
@@ -19,6 +28,8 @@ import { scheduleMissedCallText } from '../lib/automations.js';
 // from.
 
 export const publicRouter = Router();
+
+const ADMIN_SECRET = process.env.ADMIN_SECRET || 'autobuilt-admin-2026';
 
 function resolveBusiness(req, res) {
   const business = db.prepare('SELECT * FROM businesses WHERE slug = ?').get(req.params.slug);
@@ -50,6 +61,7 @@ publicRouter.get('/:slug/profile', (req, res) => {
     .prepare('SELECT weekday, start_time, end_time FROM availability_rules WHERE business_id = ? ORDER BY weekday, start_time')
     .all(business.id)
     .map((r) => ({ weekday: r.weekday, start: r.start_time, end: r.end_time }));
+  const { slotMinutes, minNoticeMin, bookingWindowDays } = bookingSettings(business);
   res.json({
     name: business.name,
     phone: business.phone || null,
@@ -57,7 +69,44 @@ publicRouter.get('/:slug/profile', (req, res) => {
     bookingUrl: business.booking_url || null,
     timezone: business.timezone,
     hours,
+    slotMinutes,
+    minNoticeMin,
+    bookingWindowDays,
   });
+});
+
+// The open times a customer can actually pick, so the client's website can
+// draw a real calendar instead of a free-text box that accepts times the
+// shop is closed. One request covers a whole range of days, because the
+// calendar needs to know which days to grey out before anything is picked.
+//
+//   GET /api/public/<slug>/availability?serviceId=<id>&from=YYYY-MM-DD&days=30
+//
+// serviceId matters: a 60-minute service has fewer openings than a
+// 30-minute one on the same day, since the whole thing has to fit before
+// closing time.
+publicRouter.get('/:slug/availability', (req, res) => {
+  const business = resolveBusiness(req, res);
+  if (!business) return;
+
+  let durationMin = 30;
+  const { serviceId } = req.query;
+  if (serviceId) {
+    const service = db
+      .prepare('SELECT duration_min FROM services WHERE id = ? AND business_id = ? AND active = 1')
+      .get(serviceId, business.id);
+    if (!service) return res.status(404).json({ error: 'Unknown service.' });
+    durationMin = service.duration_min;
+  }
+
+  const timeZone = business.timezone || 'America/Chicago';
+  const today = todayInZone(timeZone);
+  const requestedFrom = String(req.query.from || '');
+  const fromDate = /^\d{4}-\d{2}-\d{2}$/.test(requestedFrom) && requestedFrom >= today ? requestedFrom : today;
+  const requestedDays = Number(req.query.days);
+  const days = Math.min(Math.max(Number.isFinite(requestedDays) ? requestedDays : 30, 1), 62);
+
+  res.json({ from: fromDate, ...availabilityForRange({ business, durationMin, fromDate, days }) });
 });
 
 publicRouter.post('/:slug/book', (req, res) => {
@@ -67,7 +116,33 @@ publicRouter.post('/:slug/book', (req, res) => {
   if (!customerName || !phone || !startAt) {
     return res.status(400).json({ error: 'customerName, phone, and startAt are required.' });
   }
-  const endAt = new Date(new Date(startAt).getTime() + durationMin * 60000).toISOString();
+
+  // The service decides how long the booking runs; a duration sent by the
+  // page is only a fallback for the admin test tools, which book without
+  // picking a service.
+  let minutes = durationMin;
+  if (serviceId) {
+    const service = db
+      .prepare('SELECT duration_min FROM services WHERE id = ? AND business_id = ?')
+      .get(serviceId, business.id);
+    if (!service) return res.status(400).json({ error: 'Unknown service.' });
+    minutes = service.duration_min;
+  }
+
+  // Re-check the slot at write time. The customer's page could have been
+  // open for twenty minutes, and the times it drew are only a snapshot —
+  // this is the check that actually prevents a double booking. The admin
+  // test tools carry the admin secret and skip it on purpose, so Austin can
+  // still simulate a booking at an arbitrary time.
+  const isAdminTest = req.headers['x-admin-secret'] === ADMIN_SECRET;
+  if (!isAdminTest) {
+    const status = slotStatus({ business, durationMin: minutes, startAt });
+    if (status !== 'open') {
+      return res.status(409).json({ error: SLOT_STATUS_MESSAGES[status] || 'That time is no longer available.' });
+    }
+  }
+
+  const endAt = new Date(new Date(startAt).getTime() + minutes * 60000).toISOString();
   const appointment = handleExternalBooking({
     businessId: business.id,
     customerName,
