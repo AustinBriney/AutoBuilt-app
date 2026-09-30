@@ -4,18 +4,21 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>AutoBuilt Study Sessions — Baton Rouge</title>
-<meta name="description" content="Reserve a quiet study room by the hour in Baton Rouge. Book online in seconds." />
+<meta name="description" content="Reserve a quiet study room by the hour in Baton Rouge. See what's open and book online in seconds." />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
 <style>
-  /* This is a mock CLIENT website (a study-session booking space). Its only job is to show how a
-     real client's site hands a booking to the AutoBuilt app: the Book form POSTs
-     to the same public endpoint a real Cal.com/website webhook would hit, and the
-     new appointment shows up live in the AutoBuilt dashboard. */
+  /* A CLIENT's own website, on its own address. It holds no business data of
+     its own: the name, services, hours, phone AND the open times on the
+     calendar all come from the AutoBuilt app over the public API below.
+     Change something in the app and this site shows it on the next load.
+     Booking happens here, on this page — the customer is never sent off to
+     another website to finish. */
   :root {
     --ink: #17212f; --muted: #5d6877; --paper: #f3f5f8; --card: #ffffff;
     --line: rgba(0,0,0,0.1); --accent: #17212f; --gold: #c47f17;
+    --gold-soft: #fbf3e6;
   }
   * { box-sizing: border-box; }
   body { margin: 0; font-family: 'Inter', -apple-system, sans-serif; background: var(--paper); color: var(--ink); -webkit-font-smoothing: antialiased; }
@@ -24,20 +27,23 @@
 
   header { display: flex; align-items: center; justify-content: space-between; padding: 20px 0; }
   .brand { font-family: 'Fraunces', serif; font-weight: 700; font-size: 20px; }
-  .brand span { color: var(--gold); }
+  .brand span.dot { color: var(--gold); }
   nav a { color: var(--ink); text-decoration: none; font-size: 14px; font-weight: 600; margin-left: 22px; }
 
-  .hero { padding: 60px 0 70px; text-align: left; }
+  .hero { padding: 56px 0 60px; }
   .hero .eyebrow { text-transform: uppercase; letter-spacing: 0.15em; font-size: 12px; font-weight: 700; color: var(--gold); }
   .hero h1 { font-size: 52px; line-height: 1.05; margin: 14px 0 18px; max-width: 640px; }
   .hero p { font-size: 18px; color: var(--muted); max-width: 520px; line-height: 1.5; margin: 0 0 30px; }
-  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; background: var(--accent); color: #fff; border: none; border-radius: 999px; padding: 15px 30px; font-size: 16px; font-weight: 600; cursor: pointer; font-family: inherit; transition: transform .15s ease, opacity .15s ease; }
+
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; background: var(--accent); color: #fff; border: none; border-radius: 999px; padding: 15px 30px; font-size: 16px; font-weight: 600; cursor: pointer; font-family: inherit; text-decoration: none; transition: transform .15s ease, opacity .15s ease; }
   .btn:hover { opacity: .9; }
   .btn:active { transform: scale(.97); }
   .btn.gold { background: var(--gold); }
+  .btn[disabled] { opacity: .45; cursor: not-allowed; transform: none; }
 
   .section { padding: 40px 0; }
-  .section h2 { font-size: 30px; margin-bottom: 24px; }
+  .section h2 { font-size: 30px; margin-bottom: 8px; }
+  .section .lede { color: var(--muted); font-size: 15px; margin: 0 0 24px; }
   .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
   .svc { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 22px; }
   .svc .name { font-weight: 700; font-size: 17px; }
@@ -50,45 +56,139 @@
 
   footer { padding: 40px 0 60px; color: var(--muted); font-size: 13px; text-align: center; }
 
-  /* Booking modal */
-  .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,.5); display: none; align-items: center; justify-content: center; padding: 20px; z-index: 50; }
-  .modal-bg.open { display: flex; }
-  .modal { background: var(--card); border-radius: 20px; max-width: 420px; width: 100%; padding: 26px; max-height: 90vh; overflow-y: auto; }
-  .modal h3 { font-size: 24px; margin-bottom: 4px; }
-  .modal p.sub { color: var(--muted); font-size: 14px; margin: 0 0 18px; }
-  label { display: block; font-size: 13px; font-weight: 600; margin: 14px 0 6px; }
-  input, select { width: 100%; padding: 13px 14px; border: 1px solid var(--line); border-radius: 10px; font-size: 15px; font-family: inherit; background: var(--paper); }
-  .modal .btn { width: 100%; margin-top: 22px; }
-  .close { float: right; background: none; border: none; font-size: 22px; cursor: pointer; color: var(--muted); line-height: 1; }
-  .ok { text-align: center; padding: 14px 0; }
-  .ok .check { width: 56px; height: 56px; border-radius: 50%; background: var(--gold); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 30px; margin: 0 auto 16px; }
-  .row2 { display: flex; gap: 10px; }
-  .row2 > div { flex: 1; }
-  .err { color: #b0342f; font-size: 13px; margin-top: 10px; }
-  @media (max-width: 600px) { .hero h1 { font-size: 38px; } }
+  /* ---- Booking ---- */
+  .book-card { background: var(--card); border: 1px solid var(--line); border-radius: 20px; padding: 24px; }
+  .step-label { text-transform: uppercase; letter-spacing: .12em; font-size: 11px; font-weight: 700; color: var(--muted); margin-bottom: 10px; }
+
+  .pills { display: flex; flex-wrap: wrap; gap: 8px; }
+  .pill { border: 1px solid var(--line); background: var(--paper); border-radius: 999px; padding: 9px 16px; font-size: 14px; font-weight: 600; font-family: inherit; color: var(--ink); cursor: pointer; }
+  .pill.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .pill .p { font-weight: 500; opacity: .7; margin-left: 6px; }
+
+  .book-grid { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 26px; margin-top: 24px; }
+  @media (max-width: 760px) { .book-grid { grid-template-columns: 1fr; gap: 22px; } }
+
+  .cal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .cal-month { font-family: 'Fraunces', serif; font-weight: 600; font-size: 18px; }
+  .nav-btn { width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--line); background: var(--card); font-size: 16px; line-height: 1; cursor: pointer; color: var(--ink); }
+  .nav-btn[disabled] { opacity: .3; cursor: not-allowed; }
+
+  .cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+  .cal .dow { text-align: center; font-size: 11px; font-weight: 700; color: var(--muted); padding-bottom: 6px; }
+  .day { aspect-ratio: 1 / 1; border: 1px solid transparent; border-radius: 10px; background: none; font-family: inherit; font-size: 14px; font-weight: 600; color: var(--ink); cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; padding: 0; }
+  .day.open { background: var(--gold-soft); border-color: rgba(196,127,23,.25); }
+  .day.open:hover { border-color: var(--gold); }
+  .day .mark { width: 4px; height: 4px; border-radius: 50%; background: var(--gold); }
+  .day.closed { color: #b7bec9; cursor: not-allowed; }
+  .day.selected { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .day.selected .mark { background: #fff; }
+  .day.empty { cursor: default; }
+
+  .cal-note { font-size: 12px; color: var(--muted); margin-top: 12px; display: flex; align-items: center; gap: 7px; }
+  .cal-note .swatch { width: 12px; height: 12px; border-radius: 4px; background: var(--gold-soft); border: 1px solid rgba(196,127,23,.35); }
+
+  .times { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 8px; }
+  .time { border: 1px solid var(--line); background: var(--paper); border-radius: 10px; padding: 11px 6px; font-size: 14px; font-weight: 600; font-family: inherit; color: var(--ink); cursor: pointer; }
+  .time:hover { border-color: var(--gold); }
+  .time.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .muted-box { color: var(--muted); font-size: 14px; background: var(--paper); border: 1px dashed var(--line); border-radius: 12px; padding: 22px; text-align: center; }
+
+  .details { margin-top: 24px; border-top: 1px solid var(--line); padding-top: 22px; }
+  .summary { background: var(--paper); border-radius: 12px; padding: 14px 16px; font-size: 14.5px; font-weight: 600; margin-bottom: 18px; }
+  .summary .when { color: var(--gold); }
+  label { display: block; font-size: 13px; font-weight: 600; margin: 0 0 6px; }
+  input { width: 100%; padding: 13px 14px; border: 1px solid var(--line); border-radius: 10px; font-size: 16px; font-family: inherit; background: var(--paper); color: var(--ink); }
+  .row2 { display: flex; gap: 12px; flex-wrap: wrap; }
+  .row2 > div { flex: 1 1 180px; min-width: 0; }
+  .details .btn { width: 100%; margin-top: 18px; }
+  .err { color: #b0342f; font-size: 13.5px; margin-top: 12px; line-height: 1.45; }
+
+  .ok { text-align: center; padding: 20px 0; }
+  .ok .check { width: 58px; height: 58px; border-radius: 50%; background: var(--gold); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 30px; margin: 0 auto 16px; }
+  .ok h3 { font-size: 24px; margin-bottom: 8px; }
+  .ok p { color: var(--muted); font-size: 15px; margin: 0 0 6px; line-height: 1.5; }
+
+  @media (max-width: 600px) {
+    .hero { padding: 40px 0 44px; }
+    .hero h1 { font-size: 38px; }
+    .book-card { padding: 18px; }
+    .section h2 { font-size: 26px; }
+  }
 </style>
 </head>
 <body>
   <div class="wrap">
     <header>
-      <div class="brand"><span id="brand-name">AutoBuilt Study</span><span>.</span></div>
+      <div class="brand"><span id="brand-name">AutoBuilt Study</span><span class="dot">.</span></div>
       <nav>
         <a href="#services">Services</a>
         <a href="#hours">Hours</a>
-        <a href="#" onclick="openBooking();return false;">Book</a>
+        <a href="#book">Book</a>
       </nav>
     </header>
 
     <section class="hero">
       <div class="eyebrow">Baton Rouge · Reserve a room</div>
       <h1>A quiet room, booked in seconds.</h1>
-      <p>Private study rooms and focus sessions by the hour. Pick a time, get a text reminder, walk in and start working.</p>
-      <button class="btn gold" onclick="openBooking()">Book a session</button>
+      <p>Private study rooms and focus sessions by the hour. Pick a time that's open, get a text reminder, walk in and start working.</p>
+      <a class="btn gold" href="#book">See what's open</a>
     </section>
 
     <section class="section" id="services">
       <h2>Services</h2>
-      <div class="grid" id="services-grid"><div class="svc"><div class="dur">Loading services…</div></div>
+      <div class="grid" id="services-grid"><div class="svc"><div class="dur">Loading services…</div></div></div>
+    </section>
+
+    <section class="section" id="book">
+      <h2>Book a session</h2>
+      <p class="lede">Pick a service, then a time that's open. That's it.</p>
+      <div class="book-card" id="book-card">
+        <div id="booking-flow">
+          <div class="step-label">1 · What do you need?</div>
+          <div class="pills" id="service-pills"><span class="muted-box">Loading…</span></div>
+
+          <div class="book-grid">
+            <div>
+              <div class="step-label">2 · Pick a day</div>
+              <div class="cal-head">
+                <button class="nav-btn" id="prev-month" aria-label="Previous month">&#8249;</button>
+                <div class="cal-month" id="cal-month">—</div>
+                <button class="nav-btn" id="next-month" aria-label="Next month">&#8250;</button>
+              </div>
+              <div class="cal" id="cal"></div>
+              <div class="cal-note"><span class="swatch"></span> Highlighted days have openings</div>
+            </div>
+
+            <div>
+              <div class="step-label">3 · Pick a time</div>
+              <div id="times-area"><div class="muted-box">Choose a day to see open times.</div></div>
+            </div>
+          </div>
+
+          <div class="details" id="details" hidden>
+            <div class="summary" id="summary"></div>
+            <div class="row2">
+              <div>
+                <label for="f-name">Your name</label>
+                <input id="f-name" placeholder="Jane Doe" autocomplete="name" />
+              </div>
+              <div>
+                <label for="f-phone">Mobile number</label>
+                <input id="f-phone" type="tel" placeholder="(225) 555-1234" autocomplete="tel" />
+              </div>
+            </div>
+            <button class="btn gold" id="confirm-btn">Confirm booking</button>
+            <div class="err" id="err" hidden></div>
+          </div>
+        </div>
+
+        <div class="ok" id="done" hidden>
+          <div class="check">&#10003;</div>
+          <h3>You're booked.</h3>
+          <p id="done-when"></p>
+          <p>We'll text you a reminder before it starts.</p>
+          <button class="btn" id="again-btn" style="margin-top:16px">Book another</button>
+        </div>
       </div>
     </section>
 
@@ -103,159 +203,359 @@
     </footer>
   </div>
 
-  <!-- Booking modal -->
-  <div class="modal-bg" id="modal">
-    <div class="modal">
-      <button class="close" onclick="closeBooking()">&times;</button>
-      <div id="form-view">
-        <h3>Reserve your session</h3>
-        <p class="sub">We'll text you a reminder before your session.</p>
-        <label>Your name</label>
-        <input id="f-name" placeholder="Jane Doe" />
-        <label>Mobile number</label>
-        <input id="f-phone" type="tel" placeholder="(225) 555-1234" />
-        <label>Service</label>
-        <select id="f-service"></select>
-        <div class="row2">
-          <div>
-            <label>Date</label>
-            <input id="f-date" type="date" />
-          </div>
-          <div>
-            <label>Time</label>
-            <input id="f-time" type="time" value="10:00" />
-          </div>
-        </div>
-        <button class="btn gold" id="submit-btn" onclick="submitBooking()">Confirm booking</button>
-        <div class="err" id="err" style="display:none;"></div>
-      </div>
-      <div id="ok-view" style="display:none;">
-        <div class="ok">
-          <div class="check">&#10003;</div>
-          <h3>You're booked!</h3>
-          <p class="sub" id="ok-msg"></p>
-          <button class="btn" onclick="closeBooking()">Done</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
 <script>
-  // Points at the AutoBuilt API's public, slug-scoped routes — the same
-  // shape a real client's own booking site or a Cal.com webhook would call.
-  // The app is now multi-tenant, so every request has to say which business
-  // it's for; this demo site is registered as "fade-district-demo".
-  const API = 'https://autobuilt-api.onrender.com';
-  const BUSINESS_SLUG = 'autobuilt';
+// The only two lines that are specific to this client. Everything else on
+// the page is read from the app at load time.
+const API = 'https://autobuilt-api.onrender.com';
+const SLUG = 'autobuilt';
 
-  // Prefill date with today
-  document.getElementById('f-date').value = new Date().toISOString().slice(0, 10);
+const DAY_NAMES = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 
-  let services = [];
-  fetch(`${API}/api/public/${BUSINESS_SLUG}/services`)
-    .then(r => r.json())
-    .then(list => {
-      // The public endpoint already only returns active services.
-      services = list;
-      renderServices();
-    })
-    .catch(() => { services = []; renderServices(); });
+const state = {
+  profile: null,
+  services: [],
+  serviceId: null,
+  timeZone: 'America/Chicago',
+  windowDays: 30,
+  viewY: null,
+  viewM: null,           // 0-11
+  daysByDate: new Map(), // 'YYYY-MM-DD' -> { closed, slots: [{start,label}] }
+  loading: false,
+  date: null,
+  start: null,
+};
 
-  function renderServices() {
-    if (!services.length) {
-      document.getElementById('f-service').innerHTML = '<option value="">No services available yet</option>';
-      document.getElementById('services-grid').innerHTML = '<div class="svc"><div class="dur">Services are added from the AutoBuilt app and will appear here automatically.</div></div>';
-      return;
+const $ = (id) => document.getElementById(id);
+const pad = (n) => String(n).padStart(2, '0');
+const iso = (y, m, d) => y + '-' + pad(m + 1) + '-' + pad(d);
+
+// "Today" where the shop is, which is not necessarily where the customer is.
+function todayInShopZone() {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: state.timeZone, year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(new Date());
+}
+
+function money(cents) {
+  if (!cents) return 'Free';
+  return '$' + (cents % 100 === 0 ? cents / 100 : (cents / 100).toFixed(2));
+}
+
+// ---- Load the business ------------------------------------------------
+
+async function boot() {
+  try {
+    const [profile, services] = await Promise.all([
+      fetch(API + '/api/public/' + SLUG + '/profile').then((r) => r.json()),
+      fetch(API + '/api/public/' + SLUG + '/services').then((r) => r.json()),
+    ]);
+    state.profile = profile;
+    state.services = Array.isArray(services) ? services : [];
+    state.timeZone = profile.timezone || state.timeZone;
+    state.windowDays = profile.bookingWindowDays || 30;
+
+    renderChrome();
+    renderServices();
+    renderServicePills();
+
+    const today = todayInShopZone().split('-').map(Number);
+    state.viewY = today[0];
+    state.viewM = today[1] - 1;
+
+    if (state.services.length) {
+      state.serviceId = state.services[0].id;
+      renderServicePills();
+      await loadMonth();
+    } else {
+      $('cal').innerHTML = '';
+      $('times-area').innerHTML = '<div class="muted-box">No services are listed yet.</div>';
     }
-    document.getElementById('f-service').innerHTML = services.map((s) => `<option value="${s.id}">${s.name} — $${(s.price_cents/100).toFixed(0)} · ${s.duration_min} min</option>`).join('');
-    document.getElementById('services-grid').innerHTML = services.map(s =>
-      `<div class="svc"><div class="name">${s.name}</div><div class="price">$${(s.price_cents/100).toFixed(0)}</div><div class="dur">${s.duration_min} min</div></div>`
-    ).join('');
+  } catch (e) {
+    $('services-grid').innerHTML = '<div class="svc"><div class="dur">Couldn\'t load right now. Please refresh.</div></div>';
+    $('times-area').innerHTML = '<div class="muted-box">Couldn\'t load open times. Please refresh.</div>';
+  }
+}
+
+function renderChrome() {
+  const p = state.profile;
+  if (p.name) {
+    $('brand-name').textContent = p.name;
+    document.title = p.name + ' — Book online';
+  }
+  const bits = [];
+  if (p.address) bits.push(p.address);
+  if (p.phone) bits.push(p.phone);
+  $('foot-contact').textContent = bits.join(' · ');
+
+  const order = [1, 2, 3, 4, 5, 6, 0];
+  const byDay = new Map();
+  (p.hours || []).forEach((h) => {
+    if (!byDay.has(h.weekday)) byDay.set(h.weekday, []);
+    byDay.get(h.weekday).push(prettyTime(h.start) + ' – ' + prettyTime(h.end));
+  });
+  $('hours-box').innerHTML = order.map((wd) =>
+    '<div class="row"><span>' + DAY_NAMES[wd] + '</span><span>' +
+    (byDay.has(wd) ? byDay.get(wd).join(', ') : 'Closed') + '</span></div>'
+  ).join('');
+}
+
+function prettyTime(hm) {
+  const parts = String(hm || '').split(':');
+  let h = Number(parts[0]);
+  const m = Number(parts[1] || 0);
+  const suffix = h >= 12 ? 'PM' : 'AM';
+  h = h % 12 || 12;
+  return h + (m ? ':' + pad(m) : '') + ' ' + suffix;
+}
+
+function renderServices() {
+  if (!state.services.length) {
+    $('services-grid').innerHTML = '<div class="svc"><div class="dur">No services listed yet.</div></div>';
+    return;
+  }
+  $('services-grid').innerHTML = state.services.map((s) =>
+    '<div class="svc"><div class="name">' + esc(s.name) + '</div>' +
+    '<div class="price">' + money(s.price_cents) + '</div>' +
+    '<div class="dur">' + s.duration_min + ' min</div></div>'
+  ).join('');
+}
+
+function renderServicePills() {
+  if (!state.services.length) {
+    $('service-pills').innerHTML = '<span class="muted-box">No services listed yet.</span>';
+    return;
+  }
+  $('service-pills').innerHTML = state.services.map((s) =>
+    '<button class="pill' + (s.id === state.serviceId ? ' active' : '') + '" data-id="' + s.id + '">' +
+    esc(s.name) + '<span class="p">' + money(s.price_cents) + '</span></button>'
+  ).join('');
+  Array.prototype.forEach.call($('service-pills').children, (btn) => {
+    btn.onclick = () => {
+      if (btn.dataset.id === state.serviceId) return;
+      state.serviceId = btn.dataset.id;
+      // A longer service has fewer openings, so the whole calendar reloads.
+      state.date = null;
+      state.start = null;
+      renderServicePills();
+      loadMonth();
+    };
+  });
+}
+
+// ---- Availability -----------------------------------------------------
+
+async function loadMonth() {
+  const today = todayInShopZone();
+  const daysInMonth = new Date(state.viewY, state.viewM + 1, 0).getDate();
+  const firstOfMonth = iso(state.viewY, state.viewM, 1);
+  const lastOfMonth = iso(state.viewY, state.viewM, daysInMonth);
+  const from = firstOfMonth < today ? today : firstOfMonth;
+
+  state.daysByDate = new Map();
+
+  if (from > lastOfMonth) { // month is entirely in the past
+    renderCalendar();
+    renderTimes();
+    return;
   }
 
-  const DAYS = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-  const fmtTime = (t) => { const [h, m] = t.split(':').map(Number); return `${((h + 11) % 12) + 1}${m ? ':' + String(m).padStart(2, '0') : ''} ${h < 12 ? 'AM' : 'PM'}`; };
-  function renderHours(rules) {
-    const box = document.getElementById('hours-box');
-    if (!rules.length) { box.innerHTML = '<div class="row"><span>Hours will appear here once they are set in the AutoBuilt app.</span></div>'; return; }
-    const byDay = new Map();
-    rules.forEach(r => byDay.set(r.weekday, (byDay.get(r.weekday) || []).concat(`${fmtTime(r.start)} – ${fmtTime(r.end)}`)));
-    // Monday-first, closed days shown as Closed.
-    box.innerHTML = [1,2,3,4,5,6,0].map(d =>
-      `<div class="row"><span>${DAYS[d]}</span><span>${byDay.has(d) ? byDay.get(d).join(', ') : 'Closed'}</span></div>`
-    ).join('');
-  }
-  fetch(`${API}/api/public/${BUSINESS_SLUG}/profile`)
-    .then(r => r.json())
-    .then(p => {
-      document.getElementById('brand-name').textContent = p.name;
-      document.title = `${p.name} — Book online`;
-      bookingUrl = p.bookingUrl || null;
-      document.getElementById('foot-contact').textContent = [p.address, p.phone].filter(Boolean).join(' · ');
-      renderHours(p.hours || []);
-    })
-    .catch(() => { document.getElementById('hours-box').innerHTML = '<div class="row"><span>Hours unavailable right now</span></div>'; });
+  state.loading = true;
+  renderCalendar();
 
-  // If the owner has set a booking link in the app (their Cal.com page), every
-  // Book button goes there, so Cal.com sees every booking and the app hears
-  // about it through the webhook. With no link set, the built-in form below
-  // books straight into the app instead.
-  let bookingUrl = null;
-  function openBooking() {
-    // Booking happens right here on the site (the form below sends it to the AutoBuilt app),
-    // so customers never get sent to another website.
-    document.getElementById('modal').classList.add('open');
+  const span = Math.round((Date.parse(lastOfMonth) - Date.parse(from)) / 86400000) + 1;
+  const url = API + '/api/public/' + SLUG + '/availability?serviceId=' +
+    encodeURIComponent(state.serviceId) + '&from=' + from + '&days=' + span;
+
+  try {
+    const data = await fetch(url).then((r) => r.json());
+    (data.days || []).forEach((d) => state.daysByDate.set(d.date, d));
+    if (data.bookingWindowDays) state.windowDays = data.bookingWindowDays;
+  } catch (e) {
+    // Leave the map empty; the calendar renders every day as unavailable
+    // rather than pretending times exist.
+  } finally {
+    state.loading = false;
+    renderCalendar();
+    renderTimes();
   }
-  function closeBooking() {
-    document.getElementById('modal').classList.remove('open');
-    document.getElementById('form-view').style.display = 'block';
-    document.getElementById('ok-view').style.display = 'none';
+}
+
+function lastBookableDate() {
+  const d = new Date(Date.now() + state.windowDays * 86400000);
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: state.timeZone, year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(d);
+}
+
+function renderCalendar() {
+  $('cal-month').textContent = MONTHS[state.viewM] + ' ' + state.viewY;
+
+  const today = todayInShopZone();
+  const limit = lastBookableDate();
+  const firstOfView = iso(state.viewY, state.viewM, 1);
+  const daysInMonth = new Date(state.viewY, state.viewM + 1, 0).getDate();
+
+  $('prev-month').disabled = firstOfView <= today;
+  $('next-month').disabled = iso(state.viewY, state.viewM + 1, 1) > limit;
+
+  let html = ['S','M','T','W','T','F','S'].map((d) => '<div class="dow">' + d + '</div>').join('');
+
+  const leading = new Date(state.viewY, state.viewM, 1).getDay();
+  for (let i = 0; i < leading; i += 1) html += '<div class="day empty"></div>';
+
+  for (let d = 1; d <= daysInMonth; d += 1) {
+    const date = iso(state.viewY, state.viewM, d);
+    const info = state.daysByDate.get(date);
+    const hasSlots = !!(info && info.slots && info.slots.length);
+    const cls = ['day'];
+    if (hasSlots) cls.push('open'); else cls.push('closed');
+    if (date === state.date) cls.push('selected');
+    html += '<button class="' + cls.join(' ') + '" data-date="' + date + '"' +
+      (hasSlots ? '' : ' disabled') + '>' + d +
+      (hasSlots ? '<span class="mark"></span>' : '') + '</button>';
   }
 
-  async function submitBooking() {
-    const name = document.getElementById('f-name').value.trim();
-    const phone = document.getElementById('f-phone').value.trim();
-    const serviceId = document.getElementById('f-service').value;
-    const date = document.getElementById('f-date').value;
-    const time = document.getElementById('f-time').value;
-    const err = document.getElementById('err');
-    err.style.display = 'none';
+  $('cal').innerHTML = html;
+  Array.prototype.forEach.call($('cal').querySelectorAll('.day[data-date]:not([disabled])'), (btn) => {
+    btn.onclick = () => {
+      state.date = btn.dataset.date;
+      state.start = null;
+      renderCalendar();
+      renderTimes();
+    };
+  });
+}
 
-    if (!name || !phone || !date || !time) {
-      err.textContent = 'Please fill in your name, number, date, and time.';
-      err.style.display = 'block';
-      return;
+function renderTimes() {
+  const area = $('times-area');
+
+  if (state.loading) { area.innerHTML = '<div class="muted-box">Checking what\'s open…</div>'; return; }
+  if (!state.date) { area.innerHTML = '<div class="muted-box">Choose a day to see open times.</div>'; return; }
+
+  const info = state.daysByDate.get(state.date);
+  if (!info || !info.slots || !info.slots.length) {
+    area.innerHTML = '<div class="muted-box">Nothing open that day. Try another one.</div>';
+    updateDetails();
+    return;
+  }
+
+  area.innerHTML = '<div class="times">' + info.slots.map((s) =>
+    '<button class="time' + (s.start === state.start ? ' active' : '') + '" data-start="' + s.start + '">' +
+    esc(s.label) + '</button>'
+  ).join('') + '</div>';
+
+  Array.prototype.forEach.call(area.querySelectorAll('.time'), (btn) => {
+    btn.onclick = () => {
+      state.start = btn.dataset.start;
+      renderTimes();
+      $('details').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    };
+  });
+
+  updateDetails();
+}
+
+function longWhen(startIso) {
+  return new Intl.DateTimeFormat('en-US', {
+    timeZone: state.timeZone,
+    weekday: 'long', month: 'long', day: 'numeric',
+    hour: 'numeric', minute: '2-digit',
+  }).format(new Date(startIso));
+}
+
+function updateDetails() {
+  const panel = $('details');
+  if (!state.start) { panel.hidden = true; return; }
+  const service = state.services.find((s) => s.id === state.serviceId);
+  panel.hidden = false;
+  $('summary').innerHTML = esc(service ? service.name : 'Session') +
+    ' · <span class="when">' + esc(longWhen(state.start)) + '</span>';
+}
+
+// ---- Confirm ----------------------------------------------------------
+
+$('prev-month').onclick = () => {
+  state.viewM -= 1;
+  if (state.viewM < 0) { state.viewM = 11; state.viewY -= 1; }
+  state.date = null; state.start = null;
+  loadMonth();
+};
+$('next-month').onclick = () => {
+  state.viewM += 1;
+  if (state.viewM > 11) { state.viewM = 0; state.viewY += 1; }
+  state.date = null; state.start = null;
+  loadMonth();
+};
+
+$('confirm-btn').onclick = async () => {
+  const name = $('f-name').value.trim();
+  const phone = $('f-phone').value.trim();
+  const err = $('err');
+  err.hidden = true;
+
+  if (!name || !phone) {
+    err.textContent = 'Please add your name and mobile number.';
+    err.hidden = false;
+    return;
+  }
+
+  const btn = $('confirm-btn');
+  btn.disabled = true;
+  btn.textContent = 'Booking…';
+
+  try {
+    const res = await fetch(API + '/api/public/' + SLUG + '/book', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        customerName: name,
+        phone: phone,
+        serviceId: state.serviceId,
+        startAt: state.start,
+      }),
+    });
+
+    if (!res.ok) {
+      let message = 'Something went wrong. Please try again.';
+      try { message = (await res.json()).error || message; } catch (e) { /* not JSON */ }
+      throw new Error(message);
     }
-    const svc = services.find((s) => s.id === serviceId);
-    const startAt = new Date(date + 'T' + time).toISOString();
-    const btn = document.getElementById('submit-btn');
-    btn.textContent = 'Booking…';
-    btn.disabled = true;
-    try {
-      const res = await fetch(`${API}/api/public/${BUSINESS_SLUG}/book`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          customerName: name,
-          phone,
-          serviceId: svc && svc.id ? svc.id : null,
-          startAt,
-          durationMin: svc ? svc.duration_min : 30,
-        }),
-      });
-      if (!res.ok) throw new Error('Booking failed. Please try again.');
-      const when = new Date(startAt).toLocaleString([], { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
-      document.getElementById('ok-msg').textContent = `${svc ? svc.name : 'Appointment'} on ${when}. See you then!`;
-      document.getElementById('form-view').style.display = 'none';
-      document.getElementById('ok-view').style.display = 'block';
-    } catch (e) {
-      err.textContent = e.message;
-      err.style.display = 'block';
-    } finally {
-      btn.textContent = 'Confirm booking';
-      btn.disabled = false;
-    }
+
+    $('done-when').textContent = longWhen(state.start);
+    $('booking-flow').hidden = true;
+    $('done').hidden = false;
+    $('book-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  } catch (e) {
+    err.textContent = e.message;
+    err.hidden = false;
+    // Whatever went wrong, the times on screen are stale now — pull fresh
+    // ones so the customer isn't staring at a slot someone else just took.
+    state.start = null;
+    loadMonth();
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Confirm booking';
   }
+};
+
+$('again-btn').onclick = () => {
+  state.date = null;
+  state.start = null;
+  $('f-name').value = '';
+  $('f-phone').value = '';
+  $('done').hidden = true;
+  $('booking-flow').hidden = false;
+  loadMonth();
+};
+
+function esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, (c) => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+  ));
+}
+
+boot();
 </script>
 </body>
 </html>
