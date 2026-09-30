@@ -97,6 +97,8 @@ export default function Settings() {
         </div>
       </div>
 
+      <HoursSection form={form} saveField={saveField} saving={saving} />
+
       <div className="settings-section">
         <h2>Logo</h2>
         <div className="card" style={{ padding: 16, display: 'flex', alignItems: 'center', gap: 16 }}>
@@ -158,6 +160,221 @@ export default function Settings() {
           Build {typeof __BUILD_ID__ === 'string' ? __BUILD_ID__ : 'dev'}
         </div>
       </div>
+    </div>
+  );
+}
+
+// --- Hours & booking --------------------------------------------------
+//
+// This is what fills the calendar on the client's own website. Nothing on
+// that site is typed in by hand: the days below decide which dates a
+// customer can pick, and the three settings under them decide which times
+// show up inside those days.
+
+const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const WEEK_ORDER = [1, 2, 3, 4, 5, 6, 0]; // Monday first — how an owner reads a week
+
+const SLOT_OPTIONS = [
+  { value: 15, label: 'Every 15 minutes' },
+  { value: 20, label: 'Every 20 minutes' },
+  { value: 30, label: 'Every 30 minutes' },
+  { value: 45, label: 'Every 45 minutes' },
+  { value: 60, label: 'Every hour' },
+];
+
+const NOTICE_OPTIONS = [
+  { value: 0, label: 'Any time, even right now' },
+  { value: 30, label: 'At least 30 minutes ahead' },
+  { value: 60, label: 'At least 1 hour ahead' },
+  { value: 120, label: 'At least 2 hours ahead' },
+  { value: 720, label: 'At least 12 hours ahead' },
+  { value: 1440, label: 'At least a day ahead' },
+];
+
+const WINDOW_OPTIONS = [
+  { value: 7, label: 'Up to 1 week out' },
+  { value: 14, label: 'Up to 2 weeks out' },
+  { value: 30, label: 'Up to 30 days out' },
+  { value: 60, label: 'Up to 60 days out' },
+  { value: 90, label: 'Up to 90 days out' },
+];
+
+function HoursSection({ form, saveField, saving }) {
+  const [rules, setRules] = useState(null);
+  const [busyDay, setBusyDay] = useState(null);
+  const toast = useToast();
+
+  useEffect(() => {
+    let alive = true;
+    api.getAvailability()
+      .then((d) => { if (alive) setRules(d.rules || []); })
+      .catch(() => { if (alive) setRules([]); });
+    return () => { alive = false; };
+  }, []);
+
+  function ruleFor(weekday) {
+    return (rules || []).find((r) => r.weekday === weekday) || null;
+  }
+
+  // The editor shows one window per day, so saving a day clears any extra
+  // windows on it. Otherwise the website could offer times the owner can't
+  // see here, which is exactly the kind of mismatch that loses a customer.
+  async function replaceDay(weekday, startTime, endTime) {
+    setBusyDay(weekday);
+    try {
+      const existing = (rules || []).filter((r) => r.weekday === weekday);
+      for (const extra of existing.slice(1)) await api.deleteAvailabilityRule(extra.id);
+
+      let next;
+      if (existing[0]) {
+        next = await api.updateAvailabilityRule(existing[0].id, { startTime, endTime });
+      } else {
+        next = await api.addAvailabilityRule({ weekday, startTime, endTime });
+      }
+      setRules((prev) => [...(prev || []).filter((r) => r.weekday !== weekday), next]);
+      toast('Hours saved.');
+    } catch (e) {
+      toast(e.message, 'error');
+    } finally {
+      setBusyDay(null);
+    }
+  }
+
+  async function closeDay(weekday) {
+    setBusyDay(weekday);
+    try {
+      for (const rule of (rules || []).filter((r) => r.weekday === weekday)) {
+        await api.deleteAvailabilityRule(rule.id);
+      }
+      setRules((prev) => (prev || []).filter((r) => r.weekday !== weekday));
+      toast('Marked closed.');
+    } catch (e) {
+      toast(e.message, 'error');
+    } finally {
+      setBusyDay(null);
+    }
+  }
+
+  return (
+    <div className="settings-section">
+      <h2>Hours &amp; booking</h2>
+
+      <div className="card" style={{ padding: 16 }}>
+        <p style={{ fontSize: 12.5, color: 'var(--ink-faint)', margin: '0 0 14px', lineHeight: 1.5 }}>
+          These are the times customers can pick on your website. Change them here and your
+          site updates itself — nothing to email anyone about.
+        </p>
+
+        {rules === null ? (
+          <SkeletonList count={3} />
+        ) : (
+          WEEK_ORDER.map((weekday) => {
+            const rule = ruleFor(weekday);
+            const isBusy = busyDay === weekday;
+            return (
+              <div
+                key={weekday}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap',
+                  padding: '10px 0', borderBottom: '1px solid var(--line)', opacity: isBusy ? 0.5 : 1,
+                }}
+              >
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 88, cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={!!rule}
+                    disabled={isBusy}
+                    onChange={(e) => (e.target.checked ? replaceDay(weekday, '09:00', '17:00') : closeDay(weekday))}
+                    style={{ width: 17, height: 17, accentColor: 'var(--accent)' }}
+                  />
+                  <span style={{ fontSize: 13.5, fontWeight: 600 }}>{DAY_NAMES[weekday]}</span>
+                </label>
+
+                {rule ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 5, flex: 1, minWidth: 0 }}>
+                    <input
+                      className="input"
+                      type="time"
+                      defaultValue={rule.start_time}
+                      disabled={isBusy}
+                      onBlur={(e) => {
+                        if (e.target.value && e.target.value !== rule.start_time) {
+                          replaceDay(weekday, e.target.value, rule.end_time);
+                        }
+                      }}
+                      style={{ padding: '7px 4px', fontSize: 13, flex: '1 1 0', minWidth: 0 }}
+                    />
+                    <span style={{ fontSize: 12, color: 'var(--ink-faint)' }}>&ndash;</span>
+                    <input
+                      className="input"
+                      type="time"
+                      defaultValue={rule.end_time}
+                      disabled={isBusy}
+                      onBlur={(e) => {
+                        if (e.target.value && e.target.value !== rule.end_time) {
+                          replaceDay(weekday, rule.start_time, e.target.value);
+                        }
+                      }}
+                      style={{ padding: '7px 4px', fontSize: 13, flex: '1 1 0', minWidth: 0 }}
+                    />
+                  </div>
+                ) : (
+                  <span style={{ fontSize: 12.5, color: 'var(--ink-faint)' }}>Closed</span>
+                )}
+              </div>
+            );
+          })
+        )}
+      </div>
+
+      <div className="card" style={{ padding: 16, marginTop: 12 }}>
+        <SettingSelect
+          label="Appointment times"
+          hint="How far apart the start times are. Every 30 minutes gives 9:00, 9:30, 10:00, and so on."
+          value={form.slot_minutes ?? 30}
+          options={SLOT_OPTIONS}
+          disabled={saving}
+          onChange={(v) => saveField({ slot_minutes: v })}
+        />
+        <SettingSelect
+          label="Shortest notice"
+          hint="How close to the appointment someone can still book it. Stops a walk-in booking the slot you're already in."
+          value={form.min_notice_min ?? 60}
+          options={NOTICE_OPTIONS}
+          disabled={saving}
+          onChange={(v) => saveField({ min_notice_min: v })}
+        />
+        <SettingSelect
+          label="How far ahead"
+          hint="How much of the calendar customers can see."
+          value={form.booking_window_days ?? 30}
+          options={WINDOW_OPTIONS}
+          disabled={saving}
+          onChange={(v) => saveField({ booking_window_days: v })}
+          last
+        />
+      </div>
+    </div>
+  );
+}
+
+function SettingSelect({ label, hint, value, options, onChange, disabled, last }) {
+  return (
+    <div style={{ marginBottom: last ? 0 : 16 }}>
+      <label style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--ink-soft)', display: 'block', marginBottom: 6 }}>
+        {label}
+      </label>
+      <select
+        className="input"
+        value={value}
+        disabled={disabled}
+        onChange={(e) => onChange(Number(e.target.value))}
+      >
+        {options.map((o) => (
+          <option key={o.value} value={o.value}>{o.label}</option>
+        ))}
+      </select>
+      {hint && <div style={{ fontSize: 11.5, color: 'var(--ink-faint)', marginTop: 6, lineHeight: 1.4 }}>{hint}</div>}
     </div>
   );
 }
