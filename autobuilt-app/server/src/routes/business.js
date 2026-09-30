@@ -32,6 +32,7 @@ businessRouter.patch('/', (req, res) => {
     'name', 'owner_name', 'phone', 'email', 'timezone', 'address', 'booking_url', 'theme', 'onboarded',
     'automations_missed_call', 'automations_reminder', 'automations_review', 'automations_winback',
     'winback_days', 'reminder_hours_before', 'review_delay_hours',
+    'slot_minutes', 'min_notice_min', 'booking_window_days',
   ];
   const updates = Object.entries(req.body).filter(([k]) => allowed.includes(k));
   if (updates.length === 0) return res.status(400).json({ error: 'No valid fields to update.' });
