@@ -343,7 +343,10 @@ function TestTools({ slug }) {
     try {
       const res = await fetch(`/api/public/${slug}/${path}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        // The public booking endpoint now refuses times the shop isn't open
+        // for — correct for a real customer, useless for a test button. The
+        // admin secret rides along so these simulations still go through.
+        headers: { 'Content-Type': 'application/json', 'x-admin-secret': localStorage.getItem(SECRET_KEY) || '' },
         body: JSON.stringify(body),
       });
       if (!res.ok) {
